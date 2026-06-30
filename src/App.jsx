@@ -1,7 +1,103 @@
 import { useState } from "react";
 import { BrowserRouter, Link, Route, Routes } from "react-router-dom";
-import { Droplets, Home, LayoutDashboard, MapPinned, ShieldCheck } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Droplets,
+  Home,
+  LayoutDashboard,
+  MapPinned,
+  ShieldCheck,
+  Timer,
+} from "lucide-react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import "./App.css";
+
+const demoReports = [
+  {
+    id: 1,
+    issueType: "Sewage Leak",
+    locationName: "Near Madaraka Primary School",
+    area: "Madaraka",
+    riskScore: 94,
+    riskLabel: "Critical",
+    status: "Verified",
+    reporterType: "Resident",
+    createdAt: "Today, 9:15 AM",
+  },
+  {
+    id: 2,
+    issueType: "Blocked Drainage",
+    locationName: "Strathmore Gate C",
+    area: "Madaraka",
+    riskScore: 78,
+    riskLabel: "High",
+    status: "Assigned",
+    reporterType: "Student",
+    createdAt: "Today, 10:40 AM",
+  },
+  {
+    id: 3,
+    issueType: "Dirty Water",
+    locationName: "South B water point",
+    area: "South B",
+    riskScore: 83,
+    riskLabel: "High",
+    status: "In Progress",
+    reporterType: "Community Health Volunteer",
+    createdAt: "Yesterday, 4:20 PM",
+  },
+  {
+    id: 4,
+    issueType: "Illegal Dumping",
+    locationName: "Drainage channel near market",
+    area: "Kibera",
+    riskScore: 69,
+    riskLabel: "Medium",
+    status: "Reported",
+    reporterType: "Maji Champion",
+    createdAt: "Yesterday, 2:05 PM",
+  },
+  {
+    id: 5,
+    issueType: "Flooding",
+    locationName: "Estate road near open drainage",
+    area: "Langata",
+    riskScore: 91,
+    riskLabel: "Critical",
+    status: "Verified",
+    reporterType: "Estate Manager",
+    createdAt: "Mon, 8:00 AM",
+  },
+  {
+    id: 6,
+    issueType: "Broken Public Toilet",
+    locationName: "Public toilet near bus stage",
+    area: "Nairobi West",
+    riskScore: 61,
+    riskLabel: "Medium",
+    status: "Resolved",
+    reporterType: "Resident",
+    createdAt: "Sun, 12:30 PM",
+  },
+];
+
+const issueChartData = [
+  { issue: "Sewage", count: 4 },
+  { issue: "Drainage", count: 6 },
+  { issue: "Dirty Water", count: 3 },
+  { issue: "Flooding", count: 5 },
+  { issue: "Dumping", count: 4 },
+  { issue: "Toilets", count: 2 },
+];
 
 function LandingPage() {
   return (
@@ -317,13 +413,149 @@ function MapView() {
 }
 
 function Dashboard() {
+  const totalReports = demoReports.length;
+  const criticalReports = demoReports.filter(
+    (report) => report.riskLabel === "Critical"
+  ).length;
+  const resolvedReports = demoReports.filter(
+    (report) => report.status === "Resolved"
+  ).length;
+  const averageRisk = Math.round(
+    demoReports.reduce((total, report) => total + report.riskScore, 0) /
+      totalReports
+  );
+
   return (
-    <main className="page">
-      <h1>Response Dashboard</h1>
-      <p>
-        This dashboard will show risk scores, reports, pending cases, and
-        resolved sanitation issues.
-      </p>
+    <main className="page dashboard-page">
+      <section className="section-heading">
+        <span className="section-tag">Response Intelligence</span>
+        <h1>Make Kenya Clean Dashboard</h1>
+        <p>
+          Track community reports, sanitation hotspots, Maji Risk Index scores,
+          and the progress of response teams in one place.
+        </p>
+      </section>
+
+      <section className="stats-grid">
+        <div className="stat-card">
+          <Droplets size={30} />
+          <div>
+            <p>Total Reports</p>
+            <h2>{totalReports}</h2>
+          </div>
+        </div>
+
+        <div className="stat-card danger">
+          <AlertTriangle size={30} />
+          <div>
+            <p>Critical Cases</p>
+            <h2>{criticalReports}</h2>
+          </div>
+        </div>
+
+        <div className="stat-card success">
+          <CheckCircle2 size={30} />
+          <div>
+            <p>Resolved Cases</p>
+            <h2>{resolvedReports}</h2>
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <Timer size={30} />
+          <div>
+            <p>Average Risk Score</p>
+            <h2>{averageRisk}/100</h2>
+          </div>
+        </div>
+      </section>
+
+      <section className="dashboard-layout">
+        <div className="dashboard-panel">
+          <div className="panel-header">
+            <h2>Issue Categories</h2>
+            <p>Most reported water and sanitation challenges.</p>
+          </div>
+
+          <div className="chart-wrapper">
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={issueChartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="issue" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="count" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="dashboard-panel">
+          <div className="panel-header">
+            <h2>Priority Hotspots</h2>
+            <p>Areas requiring urgent attention.</p>
+          </div>
+
+          <div className="hotspot-list">
+            {demoReports
+              .filter((report) => report.riskScore >= 75)
+              .map((report) => (
+                <div className="hotspot-item" key={report.id}>
+                  <div>
+                    <h3>{report.area}</h3>
+                    <p>{report.issueType}</p>
+                  </div>
+
+                  <span className={`risk-pill small ${report.riskLabel.toLowerCase()}`}>
+                    {report.riskScore}
+                  </span>
+                </div>
+              ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="dashboard-panel reports-panel">
+        <div className="panel-header">
+          <h2>Recent Community Reports</h2>
+          <p>
+            Reports submitted by residents, students, Maji Champions, and local
+            representatives.
+          </p>
+        </div>
+
+        <div className="reports-table-wrapper">
+          <table className="reports-table">
+            <thead>
+              <tr>
+                <th>Issue</th>
+                <th>Location</th>
+                <th>Risk</th>
+                <th>Status</th>
+                <th>Reporter</th>
+                <th>Time</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {demoReports.map((report) => (
+                <tr key={report.id}>
+                  <td>{report.issueType}</td>
+                  <td>{report.locationName}</td>
+                  <td>
+                    <span className={`risk-pill table-pill ${report.riskLabel.toLowerCase()}`}>
+                      {report.riskLabel} · {report.riskScore}
+                    </span>
+                  </td>
+                  <td>{report.status}</td>
+                  <td>{report.reporterType}</td>
+                  <td>{report.createdAt}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </main>
   );
 }
