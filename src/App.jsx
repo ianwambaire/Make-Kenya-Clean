@@ -9,6 +9,9 @@ import {
   MapPinned,
   ShieldCheck,
   Timer,
+  UserCheck,
+  Camera,
+  Users,
 } from "lucide-react";
 import {
   Bar,
@@ -123,6 +126,54 @@ const issueChartData = [
   { issue: "Flooding", count: 5 },
   { issue: "Dumping", count: 4 },
   { issue: "Toilets", count: 2 },
+];
+
+const demoChampions = [
+  {
+    id: 1,
+    name: "Amina Otieno",
+    role: "Community Health Volunteer",
+    area: "Madaraka",
+    verifiedReports: 18,
+    status: "Active",
+  },
+  {
+    id: 2,
+    name: "Brian Mwangi",
+    role: "Student Volunteer",
+    area: "Strathmore / Madaraka",
+    verifiedReports: 12,
+    status: "Active",
+  },
+  {
+    id: 3,
+    name: "Grace Wanjiku",
+    role: "Estate Representative",
+    area: "Langata",
+    verifiedReports: 9,
+    status: "Active",
+  },
+];
+
+const proofReports = [
+  {
+    id: 1,
+    issueType: "Blocked Drainage",
+    locationName: "Strathmore Gate C",
+    before: "Drainage blocked with waste and stagnant water",
+    after: "Drainage cleared and water flowing normally",
+    status: "Community Confirmed",
+    resolvedIn: "2 days",
+  },
+  {
+    id: 2,
+    issueType: "Broken Public Toilet",
+    locationName: "Public toilet near bus stage",
+    before: "Facility unusable and reported by residents",
+    after: "Facility cleaned, repaired, and reopened",
+    status: "Resolved",
+    resolvedIn: "1 day",
+  },
 ];
 
 function LandingPage() {
@@ -694,13 +745,164 @@ function Dashboard() {
 }
 
 function Champions() {
+  const pendingVerification = demoReports.filter(
+    (report) => report.status === "Reported" || report.status === "Assigned"
+  );
+
   return (
-    <main className="page">
-      <h1>Maji Champions</h1>
-      <p>
-        Maji Champions are community volunteers who verify reports and confirm
-        whether issues have been resolved.
-      </p>
+    <main className="page champions-page">
+      <section className="section-heading">
+        <span className="section-tag">Community Verification</span>
+        <h1>Maji Champions</h1>
+        <p>
+          Maji Champions are trusted community volunteers who verify reports,
+          support clean-up action, and confirm whether water and sanitation
+          issues have truly been resolved.
+        </p>
+      </section>
+
+      <section className="champions-overview-grid">
+        <div className="champion-metric-card">
+          <UserCheck size={34} />
+          <div>
+            <p>Active Maji Champions</p>
+            <h2>{demoChampions.length}</h2>
+          </div>
+        </div>
+
+        <div className="champion-metric-card">
+          <ShieldCheck size={34} />
+          <div>
+            <p>Verified Reports</p>
+            <h2>
+              {demoChampions.reduce(
+                (total, champion) => total + champion.verifiedReports,
+                0
+              )}
+            </h2>
+          </div>
+        </div>
+
+        <div className="champion-metric-card">
+          <Camera size={34} />
+          <div>
+            <p>Proof Cases</p>
+            <h2>{proofReports.length}</h2>
+          </div>
+        </div>
+      </section>
+
+      <section className="champions-layout">
+        <div className="dashboard-panel">
+          <div className="panel-header">
+            <h2>Trusted Community Verifiers</h2>
+            <p>
+              Local volunteers help reduce fake reports and ensure issues are
+              confirmed on the ground.
+            </p>
+          </div>
+
+          <div className="champion-list">
+            {demoChampions.map((champion) => (
+              <div className="champion-card" key={champion.id}>
+                <div className="champion-avatar">
+                  {champion.name
+                    .split(" ")
+                    .map((part) => part[0])
+                    .join("")}
+                </div>
+
+                <div>
+                  <h3>{champion.name}</h3>
+                  <p>{champion.role}</p>
+                  <small>{champion.area}</small>
+                </div>
+
+                <span>{champion.verifiedReports} verified</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="dashboard-panel">
+          <div className="panel-header">
+            <h2>Pending Verification</h2>
+            <p>
+              Reports that need local confirmation before escalation or response.
+            </p>
+          </div>
+
+          <div className="verification-list">
+            {pendingVerification.map((report) => (
+              <div className="verification-card" key={report.id}>
+                <div>
+                  <h3>{report.issueType}</h3>
+                  <p>{report.locationName}</p>
+                  <small>Reported by {report.reporterType}</small>
+                </div>
+
+                <button type="button">Verify</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="dashboard-panel proof-panel">
+        <div className="panel-header">
+          <h2>Before & After Proof</h2>
+          <p>
+            Every resolved issue can include visual proof and community
+            confirmation, creating transparency and accountability.
+          </p>
+        </div>
+
+        <div className="proof-grid">
+          {proofReports.map((report) => (
+            <div className="proof-card" key={report.id}>
+              <div className="proof-header">
+                <div>
+                  <h3>{report.issueType}</h3>
+                  <p>{report.locationName}</p>
+                </div>
+
+                <span>{report.resolvedIn}</span>
+              </div>
+
+              <div className="proof-images">
+                <div className="proof-image before-proof">
+                  <Camera size={28} />
+                  <strong>Before</strong>
+                  <p>{report.before}</p>
+                </div>
+
+                <div className="proof-image after-proof">
+                  <CheckCircle2 size={28} />
+                  <strong>After</strong>
+                  <p>{report.after}</p>
+                </div>
+              </div>
+
+              <div className="proof-status">
+                <ShieldCheck size={18} />
+                {report.status}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="community-loop-card">
+        <Users size={36} />
+        <div>
+          <h2>The Community Accountability Loop</h2>
+          <p>
+            Report → Verify → Map → Prioritize → Act → Confirm → Learn. This is
+            what makes Make Kenya Clean different from ordinary complaint
+            platforms.
+          </p>
+        </div>
+      </section>
     </main>
   );
 }

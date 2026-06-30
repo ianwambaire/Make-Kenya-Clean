@@ -611,3 +611,245 @@ textarea:focus {
     height: 420px;
   }
 }
+.champions-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-bottom: 24px;
+}
+
+.champion-metric-card {
+  background: #ffffff;
+  border: 1px solid #d9e2ec;
+  border-radius: 22px;
+  padding: 22px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 18px 40px rgba(16, 42, 67, 0.08);
+}
+
+.champion-metric-card svg {
+  color: #006d77;
+}
+
+.champion-metric-card p {
+  font-weight: 800;
+  font-size: 14px;
+}
+
+.champion-metric-card h2 {
+  font-size: 34px;
+  color: #102a43;
+}
+
+.champions-layout {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.champion-list,
+.verification-list {
+  display: grid;
+  gap: 14px;
+}
+
+.champion-card {
+  padding: 16px;
+  border: 1px solid #d9e2ec;
+  border-radius: 18px;
+  background: #f8fbfc;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 14px;
+}
+
+.champion-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: #006d77;
+  color: #ffffff;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.champion-card h3,
+.verification-card h3,
+.proof-card h3 {
+  color: #102a43;
+  margin-bottom: 4px;
+}
+
+.champion-card small,
+.verification-card small {
+  display: inline-block;
+  margin-top: 6px;
+  color: #006d77;
+  font-weight: 800;
+}
+
+.champion-card span {
+  background: #d8f3dc;
+  color: #1b4332;
+  padding: 8px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.verification-card {
+  padding: 16px;
+  border: 1px solid #d9e2ec;
+  border-radius: 18px;
+  background: #f8fbfc;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.verification-card button {
+  border: none;
+  background: #006d77;
+  color: #ffffff;
+  font-weight: 900;
+  padding: 10px 14px;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.verification-card button:hover {
+  background: #00545c;
+}
+
+.proof-panel {
+  margin-bottom: 24px;
+}
+
+.proof-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+
+.proof-card {
+  border: 1px solid #d9e2ec;
+  border-radius: 22px;
+  background: #f8fbfc;
+  padding: 18px;
+}
+
+.proof-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.proof-header span {
+  height: fit-content;
+  background: #d8f3dc;
+  color: #1b4332;
+  padding: 8px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.proof-images {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.proof-image {
+  min-height: 180px;
+  border-radius: 18px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.proof-image svg {
+  margin-bottom: 10px;
+}
+
+.proof-image strong {
+  color: #102a43;
+  margin-bottom: 6px;
+}
+
+.before-proof {
+  background: linear-gradient(135deg, #ffe0b2, #fff8e1);
+  border: 1px solid #ffd180;
+}
+
+.after-proof {
+  background: linear-gradient(135deg, #d8f3dc, #f1fff4);
+  border: 1px solid #95d5b2;
+}
+
+.proof-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #006d77;
+  font-weight: 900;
+}
+
+.community-loop-card {
+  background: #006d77;
+  color: #ffffff;
+  border-radius: 24px;
+  padding: 28px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  box-shadow: 0 18px 40px rgba(16, 42, 67, 0.12);
+}
+
+.community-loop-card h2 {
+  color: #ffffff;
+  margin-bottom: 8px;
+}
+
+.community-loop-card p {
+  color: #e6fffb;
+  font-size: 18px;
+}
+
+@media (max-width: 1000px) {
+  .champions-overview-grid,
+  .champions-layout,
+  .proof-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 650px) {
+  .champion-card {
+    grid-template-columns: auto 1fr;
+  }
+
+  .champion-card span {
+    grid-column: 1 / -1;
+    width: fit-content;
+  }
+
+  .proof-images {
+    grid-template-columns: 1fr;
+  }
+
+  .community-loop-card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
