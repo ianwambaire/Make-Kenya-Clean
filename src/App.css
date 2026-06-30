@@ -853,3 +853,366 @@ textarea:focus {
     flex-direction: column;
   }
 }
+.home-page {
+  background: #f4f9fb;
+}
+
+.hero-section {
+  min-height: calc(100vh - 72px);
+  padding: 72px 48px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) 440px;
+  gap: 48px;
+  align-items: center;
+  background:
+    radial-gradient(circle at top left, rgba(0, 109, 119, 0.2), transparent 35%),
+    linear-gradient(135deg, #f4fbfb 0%, #e6f6f4 100%);
+}
+
+.hero-content h1 {
+  font-size: clamp(52px, 8vw, 96px);
+  line-height: 0.92;
+  letter-spacing: -4px;
+  color: #102a43;
+  margin-bottom: 24px;
+}
+
+.hero-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hero-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-top: 40px;
+  max-width: 680px;
+}
+
+.hero-stats div {
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid #d9e2ec;
+  border-radius: 20px;
+  padding: 18px;
+}
+
+.hero-stats h3 {
+  font-size: 32px;
+  color: #006d77;
+  margin-bottom: 4px;
+}
+
+.hero-stats p {
+  font-weight: 800;
+}
+
+.hero-demo-card {
+  background: #ffffff;
+  border: 1px solid #d9e2ec;
+  border-radius: 30px;
+  padding: 30px;
+  box-shadow: 0 24px 70px rgba(16, 42, 67, 0.16);
+}
+
+.demo-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #9b1c1c;
+  font-weight: 900;
+  margin-bottom: 24px;
+}
+
+.pulse-dot {
+  width: 12px;
+  height: 12px;
+  background: #9b1c1c;
+  border-radius: 50%;
+  box-shadow: 0 0 0 8px rgba(155, 28, 28, 0.1);
+}
+
+.hero-demo-card h2 {
+  font-size: 34px;
+  color: #102a43;
+  margin-bottom: 8px;
+}
+
+.demo-risk-score {
+  margin: 26px 0;
+  padding: 22px;
+  border-radius: 22px;
+  background: #ffd6d6;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.demo-risk-score span {
+  color: #9b1c1c;
+  font-weight: 900;
+}
+
+.demo-risk-score strong {
+  font-size: 34px;
+  color: #9b1c1c;
+}
+
+.demo-status-list {
+  display: grid;
+  gap: 14px;
+}
+
+.demo-status-list div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #334e68;
+  font-weight: 800;
+}
+
+.demo-status-list svg {
+  color: #006d77;
+}
+
+.problem-solution-section,
+.iot-section {
+  padding: 72px 48px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.problem-card,
+.solution-card,
+.impact-card,
+.step-card,
+.sensor-card {
+  background: #ffffff;
+  border: 1px solid #d9e2ec;
+  border-radius: 28px;
+  padding: 30px;
+  box-shadow: 0 18px 40px rgba(16, 42, 67, 0.08);
+}
+
+.problem-card h2,
+.solution-card h2,
+.iot-content h2,
+.final-cta h2 {
+  font-size: clamp(30px, 4vw, 46px);
+  color: #102a43;
+  letter-spacing: -1px;
+  margin-bottom: 16px;
+}
+
+.how-it-works-section,
+.impact-section {
+  padding: 72px 48px;
+}
+
+.centered-heading {
+  text-align: center;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.steps-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  margin-top: 32px;
+}
+
+.step-card {
+  position: relative;
+}
+
+.step-number {
+  position: absolute;
+  top: 22px;
+  right: 24px;
+  color: #d9e2ec;
+  font-size: 28px;
+  font-weight: 900;
+}
+
+.step-card svg {
+  color: #006d77;
+  margin-bottom: 18px;
+}
+
+.step-card h3,
+.impact-card h3 {
+  color: #102a43;
+  font-size: 24px;
+  margin-bottom: 10px;
+}
+
+.iot-section {
+  align-items: center;
+  background:
+    radial-gradient(circle at bottom right, rgba(0, 109, 119, 0.18), transparent 32%),
+    #e6f6f4;
+}
+
+.iot-content {
+  max-width: 760px;
+}
+
+.iot-list {
+  display: grid;
+  gap: 14px;
+  margin-top: 24px;
+}
+
+.iot-list div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #102a43;
+  font-weight: 900;
+}
+
+.iot-list svg {
+  color: #006d77;
+}
+
+.sensor-card {
+  max-width: 420px;
+  justify-self: end;
+}
+
+.sensor-visual {
+  height: 180px;
+  border-radius: 22px;
+  background: linear-gradient(135deg, #006d77, #83c5be);
+  margin-bottom: 22px;
+  display: flex;
+  align-items: end;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px;
+}
+
+.sensor-visual span {
+  width: 28px;
+  background: #ffffff;
+  border-radius: 999px;
+}
+
+.sensor-visual span:nth-child(1) {
+  height: 70px;
+}
+
+.sensor-visual span:nth-child(2) {
+  height: 110px;
+}
+
+.sensor-visual span:nth-child(3) {
+  height: 145px;
+}
+
+.sensor-card h3 {
+  font-size: 26px;
+  color: #102a43;
+  margin-bottom: 6px;
+}
+
+.sensor-reading {
+  margin-top: 14px;
+  padding: 14px;
+  background: #f4f9fb;
+  border: 1px solid #d9e2ec;
+  border-radius: 16px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.sensor-reading span {
+  font-weight: 800;
+  color: #486581;
+}
+
+.sensor-reading strong {
+  color: #006d77;
+}
+
+.impact-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 22px;
+  margin-top: 32px;
+}
+
+.final-cta {
+  margin: 0 48px 72px;
+  padding: 48px;
+  border-radius: 32px;
+  background: #006d77;
+  text-align: center;
+  box-shadow: 0 18px 40px rgba(16, 42, 67, 0.12);
+}
+
+.final-cta h2 {
+  color: #ffffff;
+}
+
+.final-cta p {
+  max-width: 760px;
+  margin: 0 auto 24px;
+  color: #e6fffb;
+  font-size: 18px;
+}
+
+.final-cta .primary-btn {
+  background: #ffffff;
+  color: #006d77;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 1100px) {
+  .hero-section,
+  .problem-solution-section,
+  .iot-section,
+  .steps-grid,
+  .impact-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .sensor-card {
+    justify-self: stretch;
+    max-width: none;
+  }
+
+  .steps-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 700px) {
+  .hero-section,
+  .problem-solution-section,
+  .how-it-works-section,
+  .iot-section,
+  .impact-section {
+    padding: 42px 22px;
+  }
+
+  .hero-stats,
+  .steps-grid,
+  .impact-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-demo-card {
+    padding: 22px;
+  }
+
+  .final-cta {
+    margin: 0 22px 42px;
+    padding: 30px 22px;
+  }
+}

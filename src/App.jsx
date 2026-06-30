@@ -12,6 +12,10 @@ import {
   UserCheck,
   Camera,
   Users,
+  Radio,
+ Activity,
+ ArrowRight,
+ Smartphone,
 } from "lucide-react";
 import {
   Bar,
@@ -178,55 +182,253 @@ const proofReports = [
 
 function LandingPage() {
   return (
-    <main className="page hero-page">
-      <section className="hero">
-        <div className="badge">Community Water & Sanitation Intelligence</div>
+    <main className="home-page">
+      <section className="hero-section">
+        <div className="hero-content">
+          <div className="badge">Smart Water & Sanitation Innovation</div>
 
-        <h1>Make Kenya Clean</h1>
+          <h1>Make Kenya Clean</h1>
 
-        <p className="hero-text">
-          A community-driven platform that helps residents report sanitation risks,
-          maps hotspots in real time, and supports faster response through local
-          verification and risk scoring.
-        </p>
+          <p className="hero-text">
+            A community-driven water and sanitation intelligence platform that
+            helps residents report risks, maps sanitation hotspots, prioritizes
+            urgent cases using the Maji Risk Index, and supports low-cost IoT
+            early warning sensors.
+          </p>
 
-        <div className="hero-actions">
-          <Link to="/report" className="btn primary-btn">
-            Report an Issue
-          </Link>
-          <Link to="/dashboard" className="btn secondary-btn">
-            View Dashboard
-          </Link>
+          <div className="hero-actions">
+            <Link to="/report" className="btn primary-btn">
+              Report an Issue
+              <ArrowRight size={18} />
+            </Link>
+
+            <Link to="/map" className="btn secondary-btn">
+              View Risk Map
+            </Link>
+          </div>
+
+          <div className="hero-stats">
+            <div>
+              <h3>6</h3>
+              <p>Demo reports</p>
+            </div>
+
+            <div>
+              <h3>2</h3>
+              <p>Critical hotspots</p>
+            </div>
+
+            <div>
+              <h3>100%</h3>
+              <p>Community-focused</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="hero-demo-card">
+          <div className="demo-card-header">
+            <span className="pulse-dot"></span>
+            Live Risk Alert
+          </div>
+
+          <h2>Sewage Leak Detected</h2>
+          <p>Near Madaraka Primary School</p>
+
+          <div className="demo-risk-score">
+            <span>Risk Score</span>
+            <strong>94/100</strong>
+          </div>
+
+          <div className="demo-status-list">
+            <div>
+              <CheckCircle2 size={18} />
+              Report verified by Maji Champion
+            </div>
+
+            <div>
+              <MapPinned size={18} />
+              Added to community risk map
+            </div>
+
+            <div>
+              <AlertTriangle size={18} />
+              Marked as critical priority
+            </div>
+          </div>
         </div>
       </section>
 
-      <section className="features-grid">
-        <div className="feature-card">
-          <Droplets size={32} />
-          <h3>Report Water & Sanitation Issues</h3>
+      <section className="problem-solution-section">
+        <div className="problem-card">
+          <span className="section-tag">The Problem</span>
+          <h2>Water and sanitation issues are reported late and tracked poorly.</h2>
           <p>
-            Residents can report sewage leaks, blocked drainage, dirty water,
-            burst pipes, flooding, and illegal dumping.
+            In many communities, blocked drainage, sewage leaks, dirty water,
+            illegal dumping, and flooding are reported through informal channels.
+            This makes it difficult to identify hotspots, prioritize urgent
+            cases, and confirm whether action has actually been taken.
           </p>
         </div>
 
-        <div className="feature-card">
-          <MapPinned size={32} />
-          <h3>Live Hotspot Map</h3>
+        <div className="solution-card">
+          <span className="section-tag">Our Solution</span>
+          <h2>A community-powered intelligence loop.</h2>
           <p>
-            Community reports appear on a map so high-risk areas can be seen,
-            verified, and prioritized.
+            Make Kenya Clean turns community reports into real-time risk data.
+            Residents report problems, Maji Champions verify them, the system
+            maps and scores each case, and response teams can track action until
+            the community confirms resolution.
+          </p>
+        </div>
+      </section>
+
+      <section className="how-it-works-section">
+        <div className="section-heading centered-heading">
+          <span className="section-tag">How It Works</span>
+          <h1>From complaint to verified action</h1>
+          <p>
+            The platform creates a simple but powerful accountability loop for
+            clean water, sanitation, and public health.
           </p>
         </div>
 
-        <div className="feature-card">
-          <ShieldCheck size={32} />
-          <h3>Maji Champions</h3>
-          <p>
-            Trusted local volunteers verify reports, confirm action, and help
-            close the accountability loop.
-          </p>
+        <div className="steps-grid">
+          <div className="step-card">
+            <div className="step-number">01</div>
+            <Smartphone size={34} />
+            <h3>Report</h3>
+            <p>
+              Residents submit a sanitation or water issue using a mobile-friendly
+              web app, WhatsApp/SMS flow, or community volunteer.
+            </p>
+          </div>
+
+          <div className="step-card">
+            <div className="step-number">02</div>
+            <ShieldCheck size={34} />
+            <h3>Verify</h3>
+            <p>
+              Maji Champions confirm reports locally to reduce fake, duplicate,
+              or unclear complaints.
+            </p>
+          </div>
+
+          <div className="step-card">
+            <div className="step-number">03</div>
+            <Activity size={34} />
+            <h3>Prioritize</h3>
+            <p>
+              The Maji Risk Index scores each case based on severity, urgency,
+              sensitive areas, and hotspot history.
+            </p>
+          </div>
+
+          <div className="step-card">
+            <div className="step-number">04</div>
+            <CheckCircle2 size={34} />
+            <h3>Confirm</h3>
+            <p>
+              Before-and-after proof and community confirmation show whether the
+              issue was truly resolved.
+            </p>
+          </div>
         </div>
+      </section>
+
+      <section className="iot-section">
+        <div className="iot-content">
+          <span className="section-tag">IoT Extension</span>
+          <h2>Low-cost sensors for early warning</h2>
+          <p>
+            In high-risk areas, Make Kenya Clean can connect low-cost IoT sensors
+            to detect drainage overflow, rising water levels, and sewage-related
+            hazards before they become public health emergencies.
+          </p>
+
+          <div className="iot-list">
+            <div>
+              <Radio size={20} />
+              Smart drainage overflow alerts
+            </div>
+
+            <div>
+              <Activity size={20} />
+              Sensor-based risk updates
+            </div>
+
+            <div>
+              <AlertTriangle size={20} />
+              Early warning for flood and sanitation hazards
+            </div>
+          </div>
+        </div>
+
+        <div className="sensor-card">
+          <div className="sensor-visual">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+
+          <h3>Drainage Sensor MKC-01</h3>
+          <p>Status: Warning</p>
+
+          <div className="sensor-reading">
+            <span>Water Level</span>
+            <strong>78%</strong>
+          </div>
+
+          <div className="sensor-reading">
+            <span>Overflow Risk</span>
+            <strong>High</strong>
+          </div>
+        </div>
+      </section>
+
+      <section className="impact-section">
+        <div className="section-heading centered-heading">
+          <span className="section-tag">Expected Impact</span>
+          <h1>Designed for communities, institutions, and counties</h1>
+        </div>
+
+        <div className="impact-grid">
+          <div className="impact-card">
+            <h3>For Residents</h3>
+            <p>
+              Faster reporting, better visibility, and a clear way to confirm
+              whether sanitation issues have been solved.
+            </p>
+          </div>
+
+          <div className="impact-card">
+            <h3>For Schools & Estates</h3>
+            <p>
+              A simple system to detect and escalate water and sanitation risks
+              before they affect learners, tenants, or staff.
+            </p>
+          </div>
+
+          <div className="impact-card">
+            <h3>For Counties & NGOs</h3>
+            <p>
+              Real-time hotspot data, response tracking, and evidence for better
+              planning, budgeting, and community interventions.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="final-cta">
+        <h2>Make Kenya Clean is not just a reporting app.</h2>
+        <p>
+          It is a community and sensor-powered sanitation intelligence system for
+          cleaner, safer, and healthier communities.
+        </p>
+
+        <Link to="/dashboard" className="btn primary-btn">
+          Explore Prototype
+          <ArrowRight size={18} />
+        </Link>
       </section>
     </main>
   );
