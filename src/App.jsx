@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BrowserRouter, Link, Route, Routes } from "react-router-dom";
 import {
   AlertTriangle,
@@ -29,6 +29,7 @@ import {
 import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
+import { supabase } from "./lib/supabase";
 import "./App.css";
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -48,8 +49,11 @@ const initialReports = [
     issueType: "Sewage Leak",
     locationName: "Near Madaraka Primary School",
     area: "Madaraka",
+    description: "Sewage overflowing near a school zone.",
     latitude: -1.3094,
     longitude: 36.8119,
+    urgency: "Critical",
+    nearSensitiveArea: "Yes",
     riskScore: 94,
     riskLabel: "Critical",
     status: "Verified",
@@ -61,8 +65,11 @@ const initialReports = [
     issueType: "Blocked Drainage",
     locationName: "Strathmore Gate C",
     area: "Madaraka",
+    description: "Drainage blocked after waste build-up.",
     latitude: -1.3107,
     longitude: 36.8124,
+    urgency: "High",
+    nearSensitiveArea: "Yes",
     riskScore: 78,
     riskLabel: "High",
     status: "Assigned",
@@ -74,8 +81,11 @@ const initialReports = [
     issueType: "Dirty Water",
     locationName: "South B water point",
     area: "South B",
+    description: "Residents reported dirty water from a community water point.",
     latitude: -1.3172,
     longitude: 36.8422,
+    urgency: "High",
+    nearSensitiveArea: "No",
     riskScore: 83,
     riskLabel: "High",
     status: "In Progress",
@@ -87,8 +97,11 @@ const initialReports = [
     issueType: "Illegal Dumping",
     locationName: "Drainage channel near market",
     area: "Kibera",
+    description: "Waste dumped near a drainage channel.",
     latitude: -1.3133,
     longitude: 36.7894,
+    urgency: "Medium",
+    nearSensitiveArea: "Yes",
     riskScore: 69,
     riskLabel: "Medium",
     status: "Reported",
@@ -100,8 +113,11 @@ const initialReports = [
     issueType: "Flooding",
     locationName: "Estate road near open drainage",
     area: "Langata",
+    description: "Flooding forming near open drainage after rainfall.",
     latitude: -1.3377,
     longitude: 36.7412,
+    urgency: "Critical",
+    nearSensitiveArea: "No",
     riskScore: 91,
     riskLabel: "Critical",
     status: "Verified",
@@ -113,23 +129,17 @@ const initialReports = [
     issueType: "Broken Public Toilet",
     locationName: "Public toilet near bus stage",
     area: "Nairobi West",
+    description: "Public toilet reported broken and unhygienic.",
     latitude: -1.3069,
     longitude: 36.8219,
+    urgency: "Medium",
+    nearSensitiveArea: "No",
     riskScore: 61,
     riskLabel: "Medium",
     status: "Resolved",
     reporterType: "Resident",
     createdAt: "Sun, 12:30 PM",
   },
-];
-
-const issueChartData = [
-  { issue: "Sewage", count: 4 },
-  { issue: "Drainage", count: 6 },
-  { issue: "Dirty Water", count: 3 },
-  { issue: "Flooding", count: 5 },
-  { issue: "Dumping", count: 4 },
-  { issue: "Toilets", count: 2 },
 ];
 
 const demoChampions = [
@@ -179,6 +189,100 @@ const proofReports = [
     resolvedIn: "1 day",
   },
 ];
+
+function toSupabaseReport(report) {
+  return {
+    id: report.id,
+    issue_type: report.issueType,
+    location_name: report.locationName,
+    area: report.area,
+    description: report.description || "",
+    latitude: report.latitude,
+    longitude: report.longitude,
+    urgency: report.urgency || "",
+    reporter_type: report.reporterType,
+    near_sensitive_area: report.nearSensitiveArea || "No",
+    risk_score: report.riskScore,
+    risk_label: report.riskLabel,
+    status: report.status,
+    created_at: report.createdAt,
+  };
+}
+
+function fromSupabaseReport(report) {
+  return {
+    id: report.id,
+    issueType: report.issue_type,
+    locationName: report.location_name,
+    area: report.area,
+    description: report.description || "",
+    latitude: report.latitude,
+    longitude: report.longitude,
+    urgency: report.urgency || "",
+    reporterType: report.reporter_type,
+    nearSensitiveArea: report.near_sensitive_area || "No",
+    riskScore: report.risk_score,
+    riskLabel: report.risk_label,
+    status: report.status,
+    createdAt: report.created_at,
+  };
+}
+
+function calculateRiskScore(issueType, urgency, nearSensitiveArea) {
+  let score = 30;
+
+  const issueScores = {
+    "Sewage Leak": 35,
+    "Blocked Drainage": 25,
+    "Dirty Water": 30,
+    "Burst Pipe": 25,
+    "Illegal Dumping": 20,
+    Flooding: 35,
+    "Broken Public Toilet": 25,
+  };
+
+  const urgencyScores = {
+    Low: 5,
+    Medium: 15,
+    High: 25,
+    Critical: 35,
+  };
+
+  score += issueScores[issueType] || 10;
+  score += urgencyScores[urgency] || 5;
+
+  if (nearSensitiveArea === "Yes") {
+    score += 20;
+  }
+
+  return Math.min(score, 100);
+}
+
+function getRiskLabel(score) {
+  if (score >= 85) return "Critical";
+  if (score >= 70) return "High";
+  if (score >= 45) return "Medium";
+  return "Low";
+}
+
+function getIssueChartData(reports) {
+  const categories = {
+    Sewage: reports.filter((report) => report.issueType === "Sewage Leak")
+      .length,
+    Drainage: reports.filter((report) => report.issueType === "Blocked Drainage")
+      .length,
+    "Dirty Water": reports.filter((report) => report.issueType === "Dirty Water")
+      .length,
+    Flooding: reports.filter((report) => report.issueType === "Flooding").length,
+    Dumping: reports.filter((report) => report.issueType === "Illegal Dumping")
+      .length,
+    Toilets: reports.filter(
+      (report) => report.issueType === "Broken Public Toilet"
+    ).length,
+  };
+
+  return Object.entries(categories).map(([issue, count]) => ({ issue, count }));
+}
 
 function LandingPage({ reports }) {
   const totalReports = reports.length;
@@ -439,43 +543,6 @@ function LandingPage({ reports }) {
   );
 }
 
-function calculateRiskScore(issueType, urgency, nearSensitiveArea) {
-  let score = 30;
-
-  const issueScores = {
-    "Sewage Leak": 35,
-    "Blocked Drainage": 25,
-    "Dirty Water": 30,
-    "Burst Pipe": 25,
-    "Illegal Dumping": 20,
-    Flooding: 35,
-    "Broken Public Toilet": 25,
-  };
-
-  const urgencyScores = {
-    Low: 5,
-    Medium: 15,
-    High: 25,
-    Critical: 35,
-  };
-
-  score += issueScores[issueType] || 10;
-  score += urgencyScores[urgency] || 5;
-
-  if (nearSensitiveArea === "Yes") {
-    score += 20;
-  }
-
-  return Math.min(score, 100);
-}
-
-function getRiskLabel(score) {
-  if (score >= 85) return "Critical";
-  if (score >= 70) return "High";
-  if (score >= 45) return "Medium";
-  return "Low";
-}
-
 function ReportIssue({ addReport }) {
   const [formData, setFormData] = useState({
     issueType: "Sewage Leak",
@@ -527,7 +594,7 @@ function ReportIssue({ addReport }) {
     );
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
 
     const newReport = {
@@ -542,7 +609,7 @@ function ReportIssue({ addReport }) {
       createdAt: new Date().toLocaleString(),
     };
 
-    addReport(newReport);
+    await addReport(newReport);
     setSubmittedReport(newReport);
 
     setFormData({
@@ -856,7 +923,7 @@ function MapView({ reports }) {
   );
 }
 
-function Dashboard({ reports }) {
+function Dashboard({ reports, updateReportStatus, resetDemoData }) {
   const totalReports = reports.length;
 
   const criticalReports = reports.filter(
@@ -864,7 +931,8 @@ function Dashboard({ reports }) {
   ).length;
 
   const resolvedReports = reports.filter(
-    (report) => report.status === "Resolved"
+    (report) =>
+      report.status === "Resolved" || report.status === "Community Confirmed"
   ).length;
 
   const averageRisk =
@@ -875,15 +943,23 @@ function Dashboard({ reports }) {
             totalReports
         );
 
+  const issueChartData = getIssueChartData(reports);
+
   return (
     <main className="page dashboard-page">
-      <section className="section-heading">
-        <span className="section-tag">Response Intelligence</span>
-        <h1>Make Kenya Clean Dashboard</h1>
-        <p>
-          Track community reports, sanitation hotspots, Maji Risk Index scores,
-          and the progress of response teams in one place.
-        </p>
+      <section className="section-heading dashboard-heading-row">
+        <div>
+          <span className="section-tag">Response Intelligence</span>
+          <h1>Make Kenya Clean Dashboard</h1>
+          <p>
+            Track community reports, sanitation hotspots, Maji Risk Index scores,
+            and the progress of response teams in one place.
+          </p>
+        </div>
+
+        <button type="button" className="reset-btn" onClick={resetDemoData}>
+          Reset Demo Data
+        </button>
       </section>
 
       <section className="stats-grid">
@@ -1001,7 +1077,22 @@ function Dashboard({ reports }) {
                       {report.riskLabel} · {report.riskScore}
                     </span>
                   </td>
-                  <td>{report.status}</td>
+                  <td>
+                    <select
+                      className="status-select"
+                      value={report.status}
+                      onChange={(event) =>
+                        updateReportStatus(report.id, event.target.value)
+                      }
+                    >
+                      <option>Reported</option>
+                      <option>Verified</option>
+                      <option>Assigned</option>
+                      <option>In Progress</option>
+                      <option>Resolved</option>
+                      <option>Community Confirmed</option>
+                    </select>
+                  </td>
                   <td>{report.reporterType}</td>
                   <td>{report.createdAt}</td>
                 </tr>
@@ -1014,7 +1105,7 @@ function Dashboard({ reports }) {
   );
 }
 
-function Champions({ reports }) {
+function Champions({ reports, updateReportStatus }) {
   const pendingVerification = reports.filter(
     (report) => report.status === "Reported" || report.status === "Assigned"
   );
@@ -1103,17 +1194,26 @@ function Champions({ reports }) {
           </div>
 
           <div className="verification-list">
-            {pendingVerification.map((report) => (
-              <div className="verification-card" key={report.id}>
-                <div>
-                  <h3>{report.issueType}</h3>
-                  <p>{report.locationName}</p>
-                  <small>Reported by {report.reporterType}</small>
-                </div>
+            {pendingVerification.length === 0 ? (
+              <p>No reports are currently pending verification.</p>
+            ) : (
+              pendingVerification.map((report) => (
+                <div className="verification-card" key={report.id}>
+                  <div>
+                    <h3>{report.issueType}</h3>
+                    <p>{report.locationName}</p>
+                    <small>Reported by {report.reporterType}</small>
+                  </div>
 
-                <button type="button">Verify</button>
-              </div>
-            ))}
+                  <button
+                    type="button"
+                    onClick={() => updateReportStatus(report.id, "Verified")}
+                  >
+                    Verify
+                  </button>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </section>
@@ -1179,9 +1279,107 @@ function Champions({ reports }) {
 
 function App() {
   const [reports, setReports] = useState(initialReports);
+  const [isLoadingReports, setIsLoadingReports] = useState(true);
 
-  function addReport(newReport) {
+  useEffect(() => {
+    async function loadReports() {
+      const { data, error } = await supabase
+        .from("reports")
+        .select("*")
+        .order("id", { ascending: false });
+
+      if (error) {
+        console.error("Could not load reports:", error.message);
+
+        const savedReports = localStorage.getItem("makeKenyaCleanReports");
+
+        if (savedReports) {
+          setReports(JSON.parse(savedReports));
+        } else {
+          setReports(initialReports);
+        }
+
+        setIsLoadingReports(false);
+        return;
+      }
+
+      if (data.length === 0) {
+        setReports(initialReports);
+      } else {
+        setReports(data.map(fromSupabaseReport));
+      }
+
+      setIsLoadingReports(false);
+    }
+
+    loadReports();
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("makeKenyaCleanReports", JSON.stringify(reports));
+  }, [reports]);
+
+  async function addReport(newReport) {
     setReports((currentReports) => [newReport, ...currentReports]);
+
+    const { error } = await supabase
+      .from("reports")
+      .insert(toSupabaseReport(newReport));
+
+    if (error) {
+      console.error("Could not save report:", error.message);
+      alert(
+        "The report was added locally, but it could not be saved online. Check Supabase settings."
+      );
+    }
+  }
+
+  async function updateReportStatus(reportId, newStatus) {
+    setReports((currentReports) =>
+      currentReports.map((report) =>
+        report.id === reportId ? { ...report, status: newStatus } : report
+      )
+    );
+
+    const { error } = await supabase
+      .from("reports")
+      .update({ status: newStatus })
+      .eq("id", reportId);
+
+    if (error) {
+      console.error("Could not update report status:", error.message);
+      alert("Status changed locally, but it could not be saved online.");
+    }
+  }
+
+  async function resetDemoData() {
+    const confirmed = window.confirm(
+      "This will reset reports back to the original demo data. Continue?"
+    );
+
+    if (!confirmed) return;
+
+    setReports(initialReports);
+
+    const { error: deleteError } = await supabase
+      .from("reports")
+      .delete()
+      .neq("id", 0);
+
+    if (deleteError) {
+      console.error("Could not clear online reports:", deleteError.message);
+      alert("Local demo data was reset, but online reports were not cleared.");
+      return;
+    }
+
+    const { error: insertError } = await supabase
+      .from("reports")
+      .insert(initialReports.map(toSupabaseReport));
+
+    if (insertError) {
+      console.error("Could not reset online demo data:", insertError.message);
+      alert("Local demo data was reset, but online demo data was not restored.");
+    }
   }
 
   return (
@@ -1207,13 +1405,40 @@ function App() {
         </div>
       </nav>
 
-      <Routes>
-        <Route path="/" element={<LandingPage reports={reports} />} />
-        <Route path="/report" element={<ReportIssue addReport={addReport} />} />
-        <Route path="/map" element={<MapView reports={reports} />} />
-        <Route path="/dashboard" element={<Dashboard reports={reports} />} />
-        <Route path="/champions" element={<Champions reports={reports} />} />
-      </Routes>
+      {isLoadingReports ? (
+        <main className="page">
+          <h1>Loading Make Kenya Clean...</h1>
+          <p>Preparing community reports and risk dashboard.</p>
+        </main>
+      ) : (
+        <Routes>
+          <Route path="/" element={<LandingPage reports={reports} />} />
+          <Route
+            path="/report"
+            element={<ReportIssue addReport={addReport} />}
+          />
+          <Route path="/map" element={<MapView reports={reports} />} />
+          <Route
+            path="/dashboard"
+            element={
+              <Dashboard
+                reports={reports}
+                updateReportStatus={updateReportStatus}
+                resetDemoData={resetDemoData}
+              />
+            }
+          />
+          <Route
+            path="/champions"
+            element={
+              <Champions
+                reports={reports}
+                updateReportStatus={updateReportStatus}
+              />
+            }
+          />
+        </Routes>
+      )}
     </BrowserRouter>
   );
 }
