@@ -20,6 +20,20 @@ import {
   YAxis,
 } from "recharts";
 import "./App.css";
+import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
+
+delete L.Icon.Default.prototype._getIconUrl;
+
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png",
+  iconUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
+  shadowUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
+});
 
 const demoReports = [
   {
@@ -27,6 +41,8 @@ const demoReports = [
     issueType: "Sewage Leak",
     locationName: "Near Madaraka Primary School",
     area: "Madaraka",
+    latitude: -1.3094,
+    longitude: 36.8119,
     riskScore: 94,
     riskLabel: "Critical",
     status: "Verified",
@@ -38,6 +54,8 @@ const demoReports = [
     issueType: "Blocked Drainage",
     locationName: "Strathmore Gate C",
     area: "Madaraka",
+    latitude: -1.3107,
+    longitude: 36.8124,
     riskScore: 78,
     riskLabel: "High",
     status: "Assigned",
@@ -49,6 +67,8 @@ const demoReports = [
     issueType: "Dirty Water",
     locationName: "South B water point",
     area: "South B",
+    latitude: -1.3172,
+    longitude: 36.8422,
     riskScore: 83,
     riskLabel: "High",
     status: "In Progress",
@@ -60,6 +80,8 @@ const demoReports = [
     issueType: "Illegal Dumping",
     locationName: "Drainage channel near market",
     area: "Kibera",
+    latitude: -1.3133,
+    longitude: 36.7894,
     riskScore: 69,
     riskLabel: "Medium",
     status: "Reported",
@@ -71,6 +93,8 @@ const demoReports = [
     issueType: "Flooding",
     locationName: "Estate road near open drainage",
     area: "Langata",
+    latitude: -1.3377,
+    longitude: 36.7412,
     riskScore: 91,
     riskLabel: "Critical",
     status: "Verified",
@@ -82,6 +106,8 @@ const demoReports = [
     issueType: "Broken Public Toilet",
     locationName: "Public toilet near bus stage",
     area: "Nairobi West",
+    latitude: -1.3069,
+    longitude: 36.8219,
     riskScore: 61,
     riskLabel: "Medium",
     status: "Resolved",
@@ -402,12 +428,119 @@ function ReportIssue() {
 }
 
 function MapView() {
+  const criticalCount = demoReports.filter(
+    (report) => report.riskLabel === "Critical"
+  ).length;
+
+  const highCount = demoReports.filter(
+    (report) => report.riskLabel === "High"
+  ).length;
+
+  const mediumCount = demoReports.filter(
+    (report) => report.riskLabel === "Medium"
+  ).length;
+
   return (
-    <main className="page">
-      <h1>Community Risk Map</h1>
-      <p>
-        This page will show sanitation and water-risk hotspots using a live map.
-      </p>
+    <main className="page map-page">
+      <section className="section-heading">
+        <span className="section-tag">Live Community Mapping</span>
+        <h1>Community Risk Map</h1>
+        <p>
+          View reported water and sanitation risks across communities. Each
+          marker represents a report submitted by residents, students, estate
+          managers, or Maji Champions.
+        </p>
+      </section>
+
+      <section className="map-summary-grid">
+        <div className="map-summary-card critical-card">
+          <h2>{criticalCount}</h2>
+          <p>Critical hotspots</p>
+        </div>
+
+        <div className="map-summary-card high-card">
+          <h2>{highCount}</h2>
+          <p>High-risk hotspots</p>
+        </div>
+
+        <div className="map-summary-card medium-card">
+          <h2>{mediumCount}</h2>
+          <p>Medium-risk hotspots</p>
+        </div>
+      </section>
+
+      <section className="map-layout">
+        <div className="map-card">
+          <MapContainer
+            center={[-1.3107, 36.8124]}
+            zoom={12}
+            scrollWheelZoom={true}
+            className="leaflet-map"
+          >
+            <TileLayer
+              attribution='&copy; OpenStreetMap contributors'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+
+            {demoReports.map((report) => (
+              <Marker
+                key={report.id}
+                position={[report.latitude, report.longitude]}
+              >
+                <Popup>
+                  <div className="map-popup">
+                    <h3>{report.issueType}</h3>
+                    <p>
+                      <strong>Location:</strong> {report.locationName}
+                    </p>
+                    <p>
+                      <strong>Area:</strong> {report.area}
+                    </p>
+                    <p>
+                      <strong>Risk:</strong> {report.riskLabel} ·{" "}
+                      {report.riskScore}/100
+                    </p>
+                    <p>
+                      <strong>Status:</strong> {report.status}
+                    </p>
+                    <p>
+                      <strong>Reported by:</strong> {report.reporterType}
+                    </p>
+                  </div>
+                </Popup>
+              </Marker>
+            ))}
+          </MapContainer>
+        </div>
+
+        <div className="map-side-panel">
+          <h2>Priority Response Queue</h2>
+          <p>
+            Reports are ranked using the Make Kenya Clean Risk Index so urgent
+            sanitation risks can be addressed first.
+          </p>
+
+          <div className="map-queue">
+            {[...demoReports]
+              .sort((a, b) => b.riskScore - a.riskScore)
+              .map((report) => (
+                <div className="queue-item" key={report.id}>
+                  <div>
+                    <h3>{report.issueType}</h3>
+                    <p>{report.locationName}</p>
+                    <small>{report.status}</small>
+                  </div>
+
+                  <span
+                    className={`risk-pill small ${report.riskLabel.toLowerCase()}`}
+                  >
+                    {report.riskScore}
+                  </span>
+                </div>
+              ))}
+          </div>
+        </div>
+      </section>
     </main>
   );
 }
