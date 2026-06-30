@@ -13,9 +13,9 @@ import {
   Camera,
   Users,
   Radio,
- Activity,
- ArrowRight,
- Smartphone,
+  Activity,
+  ArrowRight,
+  Smartphone,
 } from "lucide-react";
 import {
   Bar,
@@ -26,10 +26,10 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import "./App.css";
 import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
+import "./App.css";
 
 delete L.Icon.Default.prototype._getIconUrl;
 
@@ -42,7 +42,7 @@ L.Icon.Default.mergeOptions({
     "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
 });
 
-const demoReports = [
+const initialReports = [
   {
     id: 1,
     issueType: "Sewage Leak",
@@ -180,7 +180,12 @@ const proofReports = [
   },
 ];
 
-function LandingPage() {
+function LandingPage({ reports }) {
+  const totalReports = reports.length;
+  const criticalReports = reports.filter(
+    (report) => report.riskLabel === "Critical"
+  ).length;
+
   return (
     <main className="home-page">
       <section className="hero-section">
@@ -209,12 +214,12 @@ function LandingPage() {
 
           <div className="hero-stats">
             <div>
-              <h3>6</h3>
-              <p>Demo reports</p>
+              <h3>{totalReports}</h3>
+              <p>Total reports</p>
             </div>
 
             <div>
-              <h3>2</h3>
+              <h3>{criticalReports}</h3>
               <p>Critical hotspots</p>
             </div>
 
@@ -443,7 +448,7 @@ function calculateRiskScore(issueType, urgency, nearSensitiveArea) {
     "Dirty Water": 30,
     "Burst Pipe": 25,
     "Illegal Dumping": 20,
-    "Flooding": 35,
+    Flooding: 35,
     "Broken Public Toilet": 25,
   };
 
@@ -471,7 +476,7 @@ function getRiskLabel(score) {
   return "Low";
 }
 
-function ReportIssue() {
+function ReportIssue({ addReport }) {
   const [formData, setFormData] = useState({
     issueType: "Sewage Leak",
     locationName: "",
@@ -502,18 +507,54 @@ function ReportIssue() {
     }));
   }
 
+  function handleUseCurrentLocation() {
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by this browser.");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setFormData((currentData) => ({
+          ...currentData,
+          latitude: position.coords.latitude.toFixed(6),
+          longitude: position.coords.longitude.toFixed(6),
+        }));
+      },
+      () => {
+        alert("Could not get your location. You can enter it manually.");
+      }
+    );
+  }
+
   function handleSubmit(event) {
     event.preventDefault();
 
     const newReport = {
+      id: Date.now(),
       ...formData,
+      area: formData.locationName || "Community Report",
+      latitude: Number(formData.latitude) || -1.2921,
+      longitude: Number(formData.longitude) || 36.8219,
       riskScore,
       riskLabel,
       status: "Reported",
       createdAt: new Date().toLocaleString(),
     };
 
+    addReport(newReport);
     setSubmittedReport(newReport);
+
+    setFormData({
+      issueType: "Sewage Leak",
+      locationName: "",
+      description: "",
+      urgency: "Medium",
+      reporterType: "Resident",
+      nearSensitiveArea: "No",
+      latitude: "",
+      longitude: "",
+    });
   }
 
   return (
@@ -557,6 +598,19 @@ function ReportIssue() {
               onChange={handleChange}
               required
             />
+          </div>
+
+          <div className="location-helper">
+            <button
+              type="button"
+              className="location-btn"
+              onClick={handleUseCurrentLocation}
+            >
+              Use My Current Location
+            </button>
+            <p>
+              This helps place the report accurately on the community risk map.
+            </p>
           </div>
 
           <div className="form-row">
@@ -670,6 +724,10 @@ function ReportIssue() {
                 <strong>Status:</strong> {submittedReport.status}
               </p>
               <p>
+                <strong>Risk:</strong> {submittedReport.riskLabel} ·{" "}
+                {submittedReport.riskScore}/100
+              </p>
+              <p>
                 <strong>Submitted:</strong> {submittedReport.createdAt}
               </p>
             </div>
@@ -680,16 +738,16 @@ function ReportIssue() {
   );
 }
 
-function MapView() {
-  const criticalCount = demoReports.filter(
+function MapView({ reports }) {
+  const criticalCount = reports.filter(
     (report) => report.riskLabel === "Critical"
   ).length;
 
-  const highCount = demoReports.filter(
+  const highCount = reports.filter(
     (report) => report.riskLabel === "High"
   ).length;
 
-  const mediumCount = demoReports.filter(
+  const mediumCount = reports.filter(
     (report) => report.riskLabel === "Medium"
   ).length;
 
@@ -735,7 +793,7 @@ function MapView() {
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
 
-            {demoReports.map((report) => (
+            {reports.map((report) => (
               <Marker
                 key={report.id}
                 position={[report.latitude, report.longitude]}
@@ -774,7 +832,7 @@ function MapView() {
           </p>
 
           <div className="map-queue">
-            {[...demoReports]
+            {[...reports]
               .sort((a, b) => b.riskScore - a.riskScore)
               .map((report) => (
                 <div className="queue-item" key={report.id}>
@@ -798,18 +856,24 @@ function MapView() {
   );
 }
 
-function Dashboard() {
-  const totalReports = demoReports.length;
-  const criticalReports = demoReports.filter(
+function Dashboard({ reports }) {
+  const totalReports = reports.length;
+
+  const criticalReports = reports.filter(
     (report) => report.riskLabel === "Critical"
   ).length;
-  const resolvedReports = demoReports.filter(
+
+  const resolvedReports = reports.filter(
     (report) => report.status === "Resolved"
   ).length;
-  const averageRisk = Math.round(
-    demoReports.reduce((total, report) => total + report.riskScore, 0) /
-      totalReports
-  );
+
+  const averageRisk =
+    totalReports === 0
+      ? 0
+      : Math.round(
+          reports.reduce((total, report) => total + report.riskScore, 0) /
+            totalReports
+        );
 
   return (
     <main className="page dashboard-page">
@@ -883,7 +947,7 @@ function Dashboard() {
           </div>
 
           <div className="hotspot-list">
-            {demoReports
+            {reports
               .filter((report) => report.riskScore >= 75)
               .map((report) => (
                 <div className="hotspot-item" key={report.id}>
@@ -892,7 +956,9 @@ function Dashboard() {
                     <p>{report.issueType}</p>
                   </div>
 
-                  <span className={`risk-pill small ${report.riskLabel.toLowerCase()}`}>
+                  <span
+                    className={`risk-pill small ${report.riskLabel.toLowerCase()}`}
+                  >
                     {report.riskScore}
                   </span>
                 </div>
@@ -924,12 +990,14 @@ function Dashboard() {
             </thead>
 
             <tbody>
-              {demoReports.map((report) => (
+              {reports.map((report) => (
                 <tr key={report.id}>
                   <td>{report.issueType}</td>
                   <td>{report.locationName}</td>
                   <td>
-                    <span className={`risk-pill table-pill ${report.riskLabel.toLowerCase()}`}>
+                    <span
+                      className={`risk-pill table-pill ${report.riskLabel.toLowerCase()}`}
+                    >
                       {report.riskLabel} · {report.riskScore}
                     </span>
                   </td>
@@ -946,8 +1014,8 @@ function Dashboard() {
   );
 }
 
-function Champions() {
-  const pendingVerification = demoReports.filter(
+function Champions({ reports }) {
+  const pendingVerification = reports.filter(
     (report) => report.status === "Reported" || report.status === "Assigned"
   );
 
@@ -1110,6 +1178,12 @@ function Champions() {
 }
 
 function App() {
+  const [reports, setReports] = useState(initialReports);
+
+  function addReport(newReport) {
+    setReports((currentReports) => [newReport, ...currentReports]);
+  }
+
   return (
     <BrowserRouter>
       <nav className="navbar">
@@ -1134,11 +1208,11 @@ function App() {
       </nav>
 
       <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/report" element={<ReportIssue />} />
-        <Route path="/map" element={<MapView />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/champions" element={<Champions />} />
+        <Route path="/" element={<LandingPage reports={reports} />} />
+        <Route path="/report" element={<ReportIssue addReport={addReport} />} />
+        <Route path="/map" element={<MapView reports={reports} />} />
+        <Route path="/dashboard" element={<Dashboard reports={reports} />} />
+        <Route path="/champions" element={<Champions reports={reports} />} />
       </Routes>
     </BrowserRouter>
   );

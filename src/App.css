@@ -1216,3 +1216,30 @@ textarea:focus {
     padding: 30px 22px;
   }
 }
+.location-helper {
+  margin-bottom: 20px;
+  padding: 16px;
+  border-radius: 18px;
+  background: #f4f9fb;
+  border: 1px solid #d9e2ec;
+}
+
+.location-btn {
+  border: none;
+  background: #ffffff;
+  color: #006d77;
+  border: 1px solid #b7d8d6;
+  font-weight: 900;
+  padding: 12px 14px;
+  border-radius: 12px;
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+
+.location-btn:hover {
+  background: #e6f6f4;
+}
+
+.location-helper p {
+  font-size: 14px;
+}
