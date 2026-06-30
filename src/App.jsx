@@ -206,6 +206,7 @@ function toSupabaseReport(report) {
     risk_label: report.riskLabel,
     status: report.status,
     created_at: report.createdAt,
+    photo_url: report.photoUrl || "",
   };
 }
 
@@ -225,6 +226,7 @@ function fromSupabaseReport(report) {
     riskLabel: report.risk_label,
     status: report.status,
     createdAt: report.created_at,
+    photoUrl: report.photo_url || "",
   };
 }
 
@@ -556,6 +558,8 @@ function ReportIssue({ addReport }) {
   });
 
   const [submittedReport, setSubmittedReport] = useState(null);
+  const [photoFile, setPhotoFile] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const riskScore = calculateRiskScore(
     formData.issueType,
@@ -594,11 +598,41 @@ function ReportIssue({ addReport }) {
     );
   }
 
+  async function uploadReportPhoto(reportId) {
+    if (!photoFile) return "";
+
+    const fileExtension = photoFile.name.split(".").pop();
+    const filePath = `${reportId}.${fileExtension}`;
+
+    const { error } = await supabase.storage
+      .from("report-photos")
+      .upload(filePath, photoFile, {
+        cacheControl: "3600",
+        upsert: true,
+      });
+
+    if (error) {
+      console.error("Could not upload photo:", error.message);
+      alert("Report was submitted, but photo upload failed.");
+      return "";
+    }
+
+    const { data } = supabase.storage
+      .from("report-photos")
+      .getPublicUrl(filePath);
+
+    return data.publicUrl;
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
+    setIsSubmitting(true);
+
+    const reportId = Date.now();
+    const photoUrl = await uploadReportPhoto(reportId);
 
     const newReport = {
-      id: Date.now(),
+      id: reportId,
       ...formData,
       area: formData.locationName || "Community Report",
       latitude: Number(formData.latitude) || -1.2921,
@@ -607,10 +641,12 @@ function ReportIssue({ addReport }) {
       riskLabel,
       status: "Reported",
       createdAt: new Date().toLocaleString(),
+      photoUrl,
     };
 
     await addReport(newReport);
     setSubmittedReport(newReport);
+    setPhotoFile(null);
 
     setFormData({
       issueType: "Sewage Leak",
@@ -622,6 +658,8 @@ function ReportIssue({ addReport }) {
       latitude: "",
       longitude: "",
     });
+
+    setIsSubmitting(false);
   }
 
   return (
@@ -749,6 +787,19 @@ function ReportIssue({ addReport }) {
           </div>
 
           <div className="form-group">
+            <label>Photo Evidence</label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(event) => setPhotoFile(event.target.files[0])}
+            />
+            <small className="form-hint">
+              Upload a photo of the issue, such as blocked drainage, sewage
+              leakage, dirty water, or illegal dumping.
+            </small>
+          </div>
+
+          <div className="form-group">
             <label>Description</label>
             <textarea
               name="description"
@@ -760,8 +811,8 @@ function ReportIssue({ addReport }) {
             />
           </div>
 
-          <button type="submit" className="submit-btn">
-            Submit Report
+          <button type="submit" className="submit-btn" disabled={isSubmitting}>
+            {isSubmitting ? "Submitting Report..." : "Submit Report"}
           </button>
         </form>
 
@@ -797,6 +848,14 @@ function ReportIssue({ addReport }) {
               <p>
                 <strong>Submitted:</strong> {submittedReport.createdAt}
               </p>
+
+              {submittedReport.photoUrl && (
+                <img
+                  src={submittedReport.photoUrl}
+                  alt="Submitted report evidence"
+                  className="submitted-photo"
+                />
+              )}
             </div>
           )}
         </aside>
@@ -881,6 +940,13 @@ function MapView({ reports }) {
                     <p>
                       <strong>Status:</strong> {report.status}
                     </p>
+                    {report.photoUrl && (
+                      <img
+                        src={report.photoUrl}
+                        alt={report.issueType}
+                        className="popup-photo"
+                      />
+                    )}
                     <p>
                       <strong>Reported by:</strong> {report.reporterType}
                     </p>
@@ -1059,6 +1125,7 @@ function Dashboard({ reports, updateReportStatus, resetDemoData }) {
                 <th>Issue</th>
                 <th>Location</th>
                 <th>Risk</th>
+                <th>Photo</th>
                 <th>Status</th>
                 <th>Reporter</th>
                 <th>Time</th>
@@ -1076,6 +1143,15 @@ function Dashboard({ reports, updateReportStatus, resetDemoData }) {
                     >
                       {report.riskLabel} · {report.riskScore}
                     </span>
+                  </td>
+                  <td>
+                    {report.photoUrl ? (
+                      <a href={report.photoUrl} target="_blank" rel="noreferrer">
+                        View Photo
+                      </a>
+                    ) : (
+                      "No photo"
+                    )}
                   </td>
                   <td>
                     <select

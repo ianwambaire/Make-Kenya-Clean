@@ -1280,3 +1280,42 @@ textarea:focus {
     flex-direction: column;
   }
 }
+.form-hint {
+  display: block;
+  margin-top: 8px;
+  color: #486581;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.submit-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.submitted-photo {
+  width: 100%;
+  max-height: 220px;
+  object-fit: cover;
+  border-radius: 16px;
+  margin-top: 16px;
+  border: 1px solid #d9e2ec;
+}
+
+.popup-photo {
+  width: 220px;
+  max-height: 150px;
+  object-fit: cover;
+  border-radius: 12px;
+  margin-top: 8px;
+}
+
+.reports-table a {
+  color: #006d77;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.reports-table a:hover {
+  text-decoration: underline;
+}
