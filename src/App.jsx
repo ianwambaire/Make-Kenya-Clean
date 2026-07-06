@@ -1,4 +1,8 @@
-import { useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
 import { BrowserRouter, Link, Route, Routes } from "react-router-dom";
 import {
   AlertTriangle,
@@ -69,6 +73,65 @@ const emptyReportForm = {
   longitude: "",
 };
 
+const publicReportColumns = [
+  "id",
+  "tracking_code",
+  "issue_type",
+  "location_name",
+  "area",
+  "description",
+  "latitude",
+  "longitude",
+  "urgency",
+  "reporter_type",
+  "is_anonymous",
+  "near_sensitive_area",
+  "risk_score",
+  "risk_label",
+  "status",
+  "created_at",
+  "photo_url",
+].join(", ");
+
+const staffReportColumns = [
+  publicReportColumns,
+  "reporter_name",
+  "reporter_phone",
+  "reporter_email",
+].join(", ");
+
+const publicTimelineColumns = [
+  "id",
+  "report_id",
+  "status",
+  "note",
+  "updated_by_name",
+  "created_at",
+].join(", ");
+
+const accessRequestColumns = [
+  "id",
+  "full_name",
+  "email",
+  "phone",
+  "requested_role",
+  "area",
+  "organization_name",
+  "reason",
+  "status",
+  "created_at",
+  "reviewed_by",
+  "reviewed_at",
+].join(", ");
+
+const profileColumns = [
+  "id",
+  "full_name",
+  "role",
+  "area",
+  "organization_name",
+].join(", ");
+
 function toSupabaseReport(report) {
   return {
     id: report.id,
@@ -91,6 +154,15 @@ function toSupabaseReport(report) {
     status: report.status,
     created_at: report.createdAt,
     photo_url: report.photoUrl || "",
+  };
+}
+
+function toPublicReport(report) {
+  return {
+    ...report,
+    reporterName: "",
+    reporterPhone: "",
+    reporterEmail: "",
   };
 }
 
@@ -959,8 +1031,8 @@ function TrackReport() {
       data: reportData,
       error: reportError,
     } = await supabase
-      .from("reports")
-      .select("*")
+      .from("public_reports")
+      .select(publicReportColumns)
       .eq("tracking_code", cleanCode)
       .maybeSingle();
 
@@ -992,7 +1064,7 @@ function TrackReport() {
       error: updateError,
     } = await supabase
       .from("report_updates")
-      .select("*")
+      .select(publicTimelineColumns)
       .eq("report_id", report.id)
       .order("created_at", {
         ascending: true,
@@ -2001,6 +2073,390 @@ function RequestAccessPage() {
   );
 }
 
+function AdminAccessRequestsPage() {
+  const [requests, setRequests] = useState([]);
+  const [activeTab, setActiveTab] =
+    useState("Pending");
+  const [isLoading, setIsLoading] =
+    useState(true);
+  const [errorMessage, setErrorMessage] =
+    useState("");
+  const [successMessage, setSuccessMessage] =
+    useState("");
+  const [activeAction, setActiveAction] =
+    useState("");
+
+  async function loadAccessRequests() {
+    const { data, error } = await supabase
+      .from("access_requests")
+      .select(accessRequestColumns)
+      .order("created_at", {
+        ascending: false,
+      });
+
+    if (error) {
+      console.error(
+        "Could not load access requests:",
+        error.message
+      );
+
+      setErrorMessage(
+        "Access requests could not be loaded."
+      );
+      setRequests([]);
+      setIsLoading(false);
+      return;
+    }
+
+    setRequests(data || []);
+    setIsLoading(false);
+  }
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadRequestsForPage() {
+      const { data, error } = await supabase
+        .from("access_requests")
+        .select(accessRequestColumns)
+        .order("created_at", {
+          ascending: false,
+        });
+
+      if (!isMounted) return;
+
+      if (error) {
+        console.error(
+          "Could not load access requests:",
+          error.message
+        );
+
+        setErrorMessage(
+          "Access requests could not be loaded."
+        );
+        setRequests([]);
+        setIsLoading(false);
+        return;
+      }
+
+      setRequests(data || []);
+      setIsLoading(false);
+    }
+
+    loadRequestsForPage();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  async function refreshRequests() {
+    setIsLoading(true);
+    await loadAccessRequests();
+  }
+
+  async function handleReject(requestId) {
+    if (activeAction) return;
+
+    setErrorMessage("");
+    setSuccessMessage("");
+    setActiveAction(`reject:${requestId}`);
+
+    const { data, error } = await supabase.rpc(
+      "reject_access_request",
+      {
+        request_id: String(requestId),
+      }
+    );
+
+    if (error) {
+      console.error(
+        "Reject access request failed:",
+        error.message
+      );
+
+      setErrorMessage(error.message);
+      setActiveAction("");
+      return;
+    }
+
+    if (data?.success === false) {
+      setErrorMessage(
+        data.error ||
+          "The request could not be rejected."
+      );
+      setActiveAction("");
+      return;
+    }
+
+    setSuccessMessage(
+      "Access request rejected successfully."
+    );
+    setActiveAction("");
+    await refreshRequests();
+    setActiveTab("Rejected");
+  }
+
+  async function handleApprove(requestId) {
+    if (activeAction) return;
+
+    setErrorMessage("");
+    setSuccessMessage("");
+    setActiveAction(`approve:${requestId}`);
+
+    const { data, error } =
+      await supabase.functions.invoke(
+        "approve-access-request",
+        {
+          body: {
+            request_id: String(requestId),
+          },
+        }
+      );
+
+    if (error) {
+      console.error(
+        "Approve access request failed:",
+        error.message
+      );
+
+      setErrorMessage(error.message);
+      setActiveAction("");
+      return;
+    }
+
+    if (data?.success === false) {
+      setErrorMessage(
+        data.error ||
+          "The request could not be approved."
+      );
+      setActiveAction("");
+      return;
+    }
+
+    setSuccessMessage(
+      data?.invitation_sent
+        ? "Access approved and invitation sent."
+        : "Access approved. Existing user profile updated."
+    );
+    setActiveAction("");
+    await refreshRequests();
+    setActiveTab("Approved");
+  }
+
+  const visibleRequests = requests.filter(
+    (request) => request.status === activeTab
+  );
+
+  return (
+    <main className="page dashboard-page">
+      <section className="section-heading">
+        <span className="section-tag">
+          Admin Review
+        </span>
+
+        <h1>Access Requests</h1>
+
+        <p>
+          Review Maji Champion and organization access
+          requests.
+        </p>
+      </section>
+
+      <section className="dashboard-panel access-requests-panel">
+        <div className="panel-header">
+          <div>
+            <h2>Staff Access Review</h2>
+
+            <p>
+              Pending requests can be approved or
+              rejected by administrators.
+            </p>
+          </div>
+        </div>
+
+        <div className="request-tabs">
+          {["Pending", "Approved", "Rejected"].map(
+            (status) => {
+              const count = requests.filter(
+                (request) =>
+                  request.status === status
+              ).length;
+
+              return (
+                <button
+                  type="button"
+                  className={
+                    activeTab === status
+                      ? "request-tab active"
+                      : "request-tab"
+                  }
+                  key={status}
+                  onClick={() =>
+                    setActiveTab(status)
+                  }
+                >
+                  {status}
+                  <span>{count}</span>
+                </button>
+              );
+            }
+          )}
+        </div>
+
+        {errorMessage && (
+          <div className="form-message error-message">
+            {errorMessage}
+          </div>
+        )}
+
+        {successMessage && (
+          <div className="form-message success-message">
+            {successMessage}
+          </div>
+        )}
+
+        {isLoading ? (
+          <p>Loading access requests...</p>
+        ) : visibleRequests.length === 0 ? (
+          <p>
+            No {activeTab.toLowerCase()} access requests.
+          </p>
+        ) : (
+          <div className="access-request-list">
+            {visibleRequests.map((request) => {
+              const approveAction =
+                activeAction ===
+                `approve:${request.id}`;
+              const rejectAction =
+                activeAction ===
+                `reject:${request.id}`;
+              const actionDisabled =
+                Boolean(activeAction) ||
+                request.status !== "Pending";
+
+              return (
+                <article
+                  className="access-request-card"
+                  key={request.id}
+                >
+                  <div className="access-request-header">
+                    <div>
+                      <h3>
+                        {request.full_name ||
+                          "Unnamed applicant"}
+                      </h3>
+
+                      <p>{request.email}</p>
+                    </div>
+
+                    <span
+                      className={`request-status ${request.status?.toLowerCase()}`}
+                    >
+                      {request.status}
+                    </span>
+                  </div>
+
+                  <div className="access-request-grid">
+                    <div>
+                      <span>Phone</span>
+                      <strong>
+                        {request.phone ||
+                          "Not provided"}
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span>Requested Role</span>
+                      <strong>
+                        {request.requested_role}
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span>Area</span>
+                      <strong>
+                        {request.area ||
+                          "Not provided"}
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span>Organization</span>
+                      <strong>
+                        {request.organization_name ||
+                          "Not provided"}
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span>Submitted</span>
+                      <strong>
+                        {formatDate(
+                          request.created_at
+                        )}
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span>Reviewed</span>
+                      <strong>
+                        {request.reviewed_at
+                          ? formatDate(
+                              request.reviewed_at
+                            )
+                          : "Not reviewed"}
+                      </strong>
+                    </div>
+                  </div>
+
+                  <div className="access-request-reason">
+                    <span>Reason</span>
+                    <p>
+                      {request.reason ||
+                        "No reason provided."}
+                    </p>
+                  </div>
+
+                  {request.status === "Pending" && (
+                    <div className="access-request-actions">
+                      <button
+                        type="button"
+                        className="approve-btn"
+                        disabled={actionDisabled}
+                        onClick={() =>
+                          handleApprove(request.id)
+                        }
+                      >
+                        {approveAction
+                          ? "Approving..."
+                          : "Approve"}
+                      </button>
+
+                      <button
+                        type="button"
+                        className="reject-btn"
+                        disabled={actionDisabled}
+                        onClick={() =>
+                          handleReject(request.id)
+                        }
+                      >
+                        {rejectAction
+                          ? "Rejecting..."
+                          : "Reject"}
+                      </button>
+                    </div>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
+    </main>
+  );
+}
+
 function LoginPage({
   setUser,
   setProfile,
@@ -2090,7 +2546,7 @@ function LoginPage({
       error: profileError,
     } = await supabase
       .from("profiles")
-      .select("*")
+      .select(profileColumns)
       .eq("id", data.user.id)
       .maybeSingle();
 
@@ -2481,7 +2937,11 @@ function ProtectedPage({
 }
 
 function App() {
-  const [reports, setReports] = useState([]);
+  const [publicReports, setPublicReports] =
+    useState([]);
+
+  const [staffReports, setStaffReports] =
+    useState([]);
 
   const [
     isLoadingReports,
@@ -2493,33 +2953,66 @@ function App() {
   const [profile, setProfile] =
     useState(null);
 
-  async function loadReports() {
+  const hasStaffAccess =
+    profile &&
+    ["admin", "champion", "organization"].includes(
+      profile.role
+    );
+
+  const operationalReports = hasStaffAccess
+    ? staffReports
+    : publicReports;
+
+  const loadPublicReports = useCallback(async () => {
     const { data, error } = await supabase
-      .from("reports")
-      .select("*")
+      .from("public_reports")
+      .select(publicReportColumns)
       .order("id", {
         ascending: false,
       });
 
     if (error) {
       console.error(
-        "Could not load reports:",
+        "Could not load public reports:",
         error.message
       );
 
-      setReports([]);
+      setPublicReports([]);
       setIsLoadingReports(false);
       return;
     }
 
-    setReports(
+    setPublicReports(
       (data || []).map(fromSupabaseReport)
     );
 
     setIsLoadingReports(false);
-  }
+  }, []);
 
-  async function loadCurrentUser() {
+  const loadStaffReports = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("reports")
+      .select(staffReportColumns)
+      .order("id", {
+        ascending: false,
+      });
+
+    if (error) {
+      console.error(
+        "Could not load staff reports:",
+        error.message
+      );
+
+      setStaffReports([]);
+      return;
+    }
+
+    setStaffReports(
+      (data || []).map(fromSupabaseReport)
+    );
+  }, []);
+
+  const loadCurrentUser = useCallback(async () => {
     const { data } =
       await supabase.auth.getUser();
 
@@ -2534,23 +3027,46 @@ function App() {
       error: profileError,
     } = await supabase
       .from("profiles")
-      .select("*")
+      .select(profileColumns)
       .eq("id", data.user.id)
       .maybeSingle();
 
     if (profileError || !profileData) {
       setUser(null);
       setProfile(null);
+      setStaffReports([]);
       return;
     }
 
     setUser(data.user);
     setProfile(profileData);
-  }
+
+    if (
+      [
+        "admin",
+        "champion",
+        "organization",
+      ].includes(profileData.role)
+    ) {
+      await loadStaffReports();
+    } else {
+      setStaffReports([]);
+    }
+  }, [loadStaffReports]);
 
   useEffect(() => {
-    loadReports();
-    loadCurrentUser();
+    let isMounted = true;
+
+    async function initializeApp() {
+      await Promise.all([
+        loadPublicReports(),
+        loadCurrentUser(),
+      ]);
+    }
+
+    if (isMounted) {
+      initializeApp();
+    }
 
     const {
       data: { subscription },
@@ -2561,9 +3077,10 @@ function App() {
     );
 
     return () => {
+      isMounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [loadCurrentUser, loadPublicReports]);
 
   async function addReport(newReport) {
     const { error: reportError } =
@@ -2603,10 +3120,16 @@ function App() {
       );
     }
 
-    setReports((current) => [
-      newReport,
+    setPublicReports((current) => [
+      toPublicReport(newReport),
       ...current,
     ]);
+
+    setStaffReports((current) =>
+      current.length > 0
+        ? [newReport, ...current]
+        : current
+    );
 
     return true;
   }
@@ -2616,7 +3139,7 @@ function App() {
     newStatus,
     note = ""
   ) {
-    const currentReport = reports.find(
+    const currentReport = operationalReports.find(
       (report) => report.id === reportId
     );
 
@@ -2626,7 +3149,18 @@ function App() {
 
     const oldStatus = currentReport.status;
 
-    setReports((current) =>
+    setPublicReports((current) =>
+      current.map((report) =>
+        report.id === reportId
+          ? {
+              ...report,
+              status: newStatus,
+            }
+          : report
+      )
+    );
+
+    setStaffReports((current) =>
       current.map((report) =>
         report.id === reportId
           ? {
@@ -2646,7 +3180,18 @@ function App() {
         .eq("id", reportId);
 
     if (statusError) {
-      setReports((current) =>
+      setPublicReports((current) =>
+        current.map((report) =>
+          report.id === reportId
+            ? {
+                ...report,
+                status: oldStatus,
+              }
+            : report
+        )
+      );
+
+      setStaffReports((current) =>
         current.map((report) =>
           report.id === reportId
             ? {
@@ -2737,6 +3282,12 @@ function App() {
             Champions
           </Link>
 
+          {profile?.role === "admin" && (
+            <Link to="/admin/access-requests">
+              Access Requests
+            </Link>
+          )}
+
           {user ? (
             <button
               type="button"
@@ -2769,7 +3320,7 @@ function App() {
             path="/"
             element={
               <LandingPage
-                reports={reports}
+                reports={publicReports}
               />
             }
           />
@@ -2792,7 +3343,7 @@ function App() {
             path="/map"
             element={
               <MapView
-                reports={reports}
+                reports={publicReports}
               />
             }
           />
@@ -2829,7 +3380,7 @@ function App() {
                 ]}
               >
                 <Dashboard
-                  reports={reports}
+                  reports={staffReports}
                   updateReportStatus={
                     updateReportStatus
                   }
@@ -2851,12 +3402,25 @@ function App() {
                 ]}
               >
                 <Champions
-                  reports={reports}
+                  reports={staffReports}
                   updateReportStatus={
                     updateReportStatus
                   }
                   profile={profile}
                 />
+              </ProtectedPage>
+            }
+          />
+
+          <Route
+            path="/admin/access-requests"
+            element={
+              <ProtectedPage
+                user={user}
+                profile={profile}
+                allowedRoles={["admin"]}
+              >
+                <AdminAccessRequestsPage />
               </ProtectedPage>
             }
           />
