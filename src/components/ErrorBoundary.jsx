@@ -1,5 +1,6 @@
 import { Component } from "react";
 import { Link } from "react-router-dom";
+import { AlertTriangle } from "lucide-react";
 import { reportClientError } from "../utils/errorReporting";
 
 export default class ErrorBoundary extends Component {
@@ -23,12 +24,14 @@ export default class ErrorBoundary extends Component {
 
     return (
       <main className="page error-page">
-        <section className="dashboard-panel">
+        <section className="dashboard-panel error-panel">
+          <AlertTriangle size={28} />
           <span className="section-tag">App Error</span>
-          <h1>Something went wrong.</h1>
+          <h1>Something went wrong</h1>
           <p>
-            The page could not finish loading. Try reloading,
-            or return home and continue from there.
+            This page could not finish loading. Your reports and
+            data are safe — try reloading, or return home and
+            continue from there.
           </p>
           <div className="access-request-actions">
             <button
@@ -36,10 +39,10 @@ export default class ErrorBoundary extends Component {
               className="approve-btn"
               onClick={() => globalThis.location.reload()}
             >
-              Reload
+              Reload page
             </button>
             <Link to="/" className="btn secondary-btn">
-              Home
+              Return home
             </Link>
           </div>
         </section>

@@ -2777,3 +2777,29 @@ textarea:focus-visible {
   align-items: center;
   gap: 6px;
 }
+.error-panel {
+  max-width: 480px;
+  margin: var(--sp-7) auto;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.error-panel svg {
+  color: var(--warn);
+  margin-bottom: 4px;
+}
+
+.error-panel .section-tag {
+  margin-bottom: 0;
+}
+
+.error-panel p {
+  margin-bottom: var(--sp-2);
+}
+
+.error-panel .access-request-actions {
+  justify-content: center;
+}
