@@ -40,6 +40,20 @@ function getEnv(name: string) {
   return value;
 }
 
+function logFunctionError(
+  operation: string,
+  error: unknown,
+  context: Record<string, unknown> = {},
+) {
+  console.error(operation, {
+    ...context,
+    error:
+      error instanceof Error
+        ? error.name
+        : "UnknownError",
+  });
+}
+
 async function findAuthUserByEmail(
   supabaseAdmin: ReturnType<typeof createClient>,
   email: string,
@@ -301,15 +315,16 @@ Deno.serve(async (request) => {
         "Auth invitation/user creation and database updates are not one transaction. If a retry is needed after a failure, the function reuses an existing Auth user by email and upserts the profile.",
     });
   } catch (error) {
-    console.error("approve-access-request error", error);
+    logFunctionError(
+      "approve-access-request failed",
+      error,
+    );
 
     return jsonResponse(
       {
         success: false,
         error:
-          error instanceof Error
-            ? error.message
-            : "Unexpected approval error",
+          "Could not approve this access request. Please retry or check the function logs.",
       },
       500,
     );

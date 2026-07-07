@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import PhotoUploader from "../components/PhotoUploader";
 import ReportTimeline from "../components/ReportTimeline";
 import {
   formatDate,
@@ -31,6 +32,7 @@ export default function ReportDetailPage({
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [busyOperation, setBusyOperation] = useState("");
+  const [uploadStatus, setUploadStatus] = useState("");
   const [actionForm, setActionForm] = useState({
     actionType: "Inspection",
     visibility: "Public",
@@ -199,13 +201,16 @@ export default function ReportDetailPage({
     }
 
     setBusyOperation("resolution");
+    setUploadStatus("Preparing evidence...");
     const result = await onSubmitResolution(
       currentAssignment.id,
       resolutionForm.file,
       resolutionForm.note,
-      resolutionForm.completedAt
+      resolutionForm.completedAt,
+      setUploadStatus
     );
     setBusyOperation("");
+    setUploadStatus("");
 
     if (!result?.success) {
       setMessage(
@@ -493,16 +498,18 @@ export default function ReportDetailPage({
               </div>
 
               <div className="assignment-controls">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(event) =>
+                <PhotoUploader
+                  id="resolution-evidence-photo"
+                  label="Resolution Photo"
+                  file={resolutionForm.file}
+                  onChange={(file) =>
                     setResolutionForm((current) => ({
                       ...current,
-                      file:
-                        event.target.files?.[0] || null,
+                      file,
                     }))
                   }
+                  required
+                  hint="Upload issue-resolution evidence only. Avoid faces, private documents, ID cards, or unrelated personal information."
                 />
 
                 <input
@@ -534,9 +541,17 @@ export default function ReportDetailPage({
                   disabled={busyOperation === "resolution"}
                   onClick={handleSubmitResolution}
                 >
-                  Submit Resolution
+                  {busyOperation === "resolution"
+                    ? "Submitting..."
+                    : "Submit Resolution"}
                 </button>
               </div>
+
+              {uploadStatus && (
+                <p className="upload-status" aria-live="polite">
+                  {uploadStatus}
+                </p>
+              )}
             </div>
           )}
         </section>

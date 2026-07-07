@@ -30,6 +30,20 @@ function getEnv(name: string) {
   return value;
 }
 
+function logFunctionError(
+  operation: string,
+  error: unknown,
+  context: Record<string, unknown> = {},
+) {
+  console.error(operation, {
+    ...context,
+    error:
+      error instanceof Error
+        ? error.name
+        : "UnknownError",
+  });
+}
+
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -174,15 +188,16 @@ Deno.serve(async (request) => {
       results,
     });
   } catch (error) {
-    console.error("dispatch-notification-email error", error);
+    logFunctionError(
+      "dispatch-notification-email failed",
+      error,
+    );
 
     return jsonResponse(
       {
         success: false,
         error:
-          error instanceof Error
-            ? error.message
-            : "Unexpected email dispatch error",
+          "Could not dispatch notification email. Please retry or check the function logs.",
       },
       500,
     );

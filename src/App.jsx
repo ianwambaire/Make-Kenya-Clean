@@ -1,9 +1,11 @@
 import {
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useState,
 } from "react";
-import { BrowserRouter, Link, Route, Routes } from "react-router-dom";
+import { Link, Route, Routes } from "react-router-dom";
 import {
   AlertTriangle,
   ArrowRight,
@@ -27,32 +29,30 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import {
-  MapContainer,
-  Marker,
-  Popup,
-  TileLayer,
-} from "react-leaflet";
-import "leaflet/dist/leaflet.css";
-import L from "leaflet";
 import { supabase } from "./lib/supabase";
 import NotificationBell from "./components/NotificationBell";
+import PhotoUploader from "./components/PhotoUploader";
 import ReportFilters from "./components/ReportFilters";
 import ReportTimeline from "./components/ReportTimeline";
-import AdminOrganizationsPage from "./pages/AdminOrganizationsPage";
-import ReportDetailPage from "./pages/ReportDetailPage";
+import {
+  extensionForImage,
+  prepareImageForUpload,
+} from "./utils/imageCompression";
 import "./App.css";
 
-delete L.Icon.Default.prototype._getIconUrl;
-
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl:
-    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png",
-  iconUrl:
-    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
-  shadowUrl:
-    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
-});
+const AdminOrganizationsPage = lazy(() =>
+  import("./pages/AdminOrganizationsPage")
+);
+const ReportDetailPage = lazy(() =>
+  import("./pages/ReportDetailPage")
+);
+const PublicMapPage = lazy(() =>
+  import("./pages/PublicMapPage")
+);
+const PrivacyPolicyPage = lazy(() =>
+  import("./pages/PrivacyPolicyPage")
+);
+const TermsPage = lazy(() => import("./pages/TermsPage"));
 
 const assignmentStatuses = [
   "Unassigned",
@@ -620,6 +620,12 @@ function ReportIssue({ addReport }) {
 
   const [photoFile, setPhotoFile] =
     useState(null);
+  const [submissionStep, setSubmissionStep] =
+    useState("");
+  const [formMessage, setFormMessage] =
+    useState("");
+  const [consentAccepted, setConsentAccepted] =
+    useState(false);
 
   const [isSubmitting, setIsSubmitting] =
     useState(false);
@@ -649,12 +655,14 @@ function ReportIssue({ addReport }) {
 
   function handleUseCurrentLocation() {
     if (!navigator.geolocation) {
-      alert(
-        "Geolocation is not supported by this browser."
+      setFormMessage(
+        "Geolocation is not supported by this browser. Enter the location manually."
       );
 
       return;
     }
+
+    setFormMessage("Requesting your device location...");
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -665,10 +673,11 @@ function ReportIssue({ addReport }) {
           longitude:
             position.coords.longitude.toFixed(6),
         }));
+        setFormMessage("Location added. You can adjust it before submitting.");
       },
       () => {
-        alert(
-          "Could not get your location. You can enter it manually."
+        setFormMessage(
+          "Location permission was denied or unavailable. You can enter the location manually."
         );
       }
     );
@@ -677,32 +686,20 @@ function ReportIssue({ addReport }) {
   async function uploadReportPhoto(reportId) {
     if (!photoFile) return "";
 
-    if (!photoFile.type.startsWith("image/")) {
-      alert("Please upload a valid image file.");
-      return "";
-    }
-
-    if (photoFile.size > 5 * 1024 * 1024) {
-      alert(
-        "Image is too large. Please upload an image under 5MB."
-      );
-
-      return "";
-    }
-
-    const extension =
-      photoFile.name
-        .split(".")
-        .pop()
-        ?.toLowerCase() || "jpg";
+    setSubmissionStep("Compressing photo...");
+    const preparedImage =
+      await prepareImageForUpload(photoFile);
+    const extension = preparedImage.extension;
 
     const filePath = `${reportId}.${extension}`;
 
+    setSubmissionStep("Uploading photo...");
     const { error } = await supabase.storage
       .from("report-photos")
-      .upload(filePath, photoFile, {
+      .upload(filePath, preparedImage.blob, {
         cacheControl: "3600",
         upsert: true,
+        contentType: preparedImage.blob.type,
       });
 
     if (error) {
@@ -711,11 +708,9 @@ function ReportIssue({ addReport }) {
         error.message
       );
 
-      alert(
-        "The photo could not be uploaded. The report can still be submitted."
+      throw new Error(
+        "The photo could not be uploaded. Check your connection and try again."
       );
-
-      return "";
     }
 
     const { data } = supabase.storage
@@ -728,58 +723,82 @@ function ReportIssue({ addReport }) {
   async function handleSubmit(event) {
     event.preventDefault();
 
-    setIsSubmitting(true);
+    if (isSubmitting) return;
 
-    const reportId = Date.now();
-
-    const trackingCode =
-      generateTrackingCode();
-
-    const photoUrl =
-      await uploadReportPhoto(reportId);
-
-    const newReport = {
-      id: reportId,
-      trackingCode,
-      ...formData,
-      reporterName: formData.isAnonymous
-        ? ""
-        : formData.reporterName.trim(),
-      reporterPhone: formData.isAnonymous
-        ? ""
-        : formData.reporterPhone.trim(),
-      reporterEmail: formData.isAnonymous
-        ? ""
-        : formData.reporterEmail.trim(),
-      area: formData.locationName.trim(),
-      latitude:
-        Number(formData.latitude) || -1.2921,
-      longitude:
-        Number(formData.longitude) || 36.8219,
-      riskScore,
-      riskLabel,
-      status: "Reported",
-      createdAt: new Date().toISOString(),
-      photoUrl,
-    };
-
-    const savedSuccessfully =
-      await addReport(newReport);
-
-    if (!savedSuccessfully) {
-      setIsSubmitting(false);
+    if (!consentAccepted) {
+      setFormMessage(
+        "Please confirm the data-use notice before submitting."
+      );
       return;
     }
 
-    setSubmittedReport(newReport);
-    setPhotoFile(null);
-    setFormData(emptyReportForm);
+    setIsSubmitting(true);
+    setFormMessage("");
+    setSubmissionStep("Preparing report...");
 
-    alert(
-      `Report submitted successfully.\n\nTracking code: ${trackingCode}\n\nSave this code to track your report.`
-    );
+    try {
+      const reportId = Date.now();
 
-    setIsSubmitting(false);
+      const trackingCode =
+        generateTrackingCode();
+
+      const photoUrl =
+        await uploadReportPhoto(reportId);
+
+      setSubmissionStep("Submitting report...");
+
+      const newReport = {
+        id: reportId,
+        trackingCode,
+        ...formData,
+        reporterName: formData.isAnonymous
+          ? ""
+          : formData.reporterName.trim(),
+        reporterPhone: formData.isAnonymous
+          ? ""
+          : formData.reporterPhone.trim(),
+        reporterEmail: formData.isAnonymous
+          ? ""
+          : formData.reporterEmail.trim(),
+        area: formData.locationName.trim(),
+        latitude:
+          Number(formData.latitude) || -1.2921,
+        longitude:
+          Number(formData.longitude) || 36.8219,
+        riskScore,
+        riskLabel,
+        status: "Reported",
+        createdAt: new Date().toISOString(),
+        photoUrl,
+      };
+
+      const savedSuccessfully =
+        await addReport(newReport);
+
+      if (!savedSuccessfully) {
+        setFormMessage(
+          "The report could not be saved. Please check your connection and try again."
+        );
+        return;
+      }
+
+      setSubmissionStep("Complete");
+      setSubmittedReport(newReport);
+      setPhotoFile(null);
+      setConsentAccepted(false);
+      setFormData(emptyReportForm);
+      setFormMessage(
+        `Report submitted successfully. Tracking code: ${trackingCode}`
+      );
+    } catch (error) {
+      setFormMessage(
+        error.message ||
+          "Submission failed. Please try again."
+      );
+    } finally {
+      setIsSubmitting(false);
+      setSubmissionStep("");
+    }
   }
 
   return (
@@ -804,6 +823,39 @@ function ReportIssue({ addReport }) {
           className="report-form"
           onSubmit={handleSubmit}
         >
+          {formMessage && (
+            <p
+              className={`form-message ${
+                submittedReport ? "success-message" : ""
+              }`}
+              aria-live="polite"
+            >
+              {formMessage}
+            </p>
+          )}
+
+          {submissionStep && (
+            <p className="upload-status" aria-live="polite">
+              {submissionStep}
+            </p>
+          )}
+
+          <div className="mobile-flow-steps" aria-label="Report flow">
+            <span>Photo</span>
+            <span>Location</span>
+            <span>Issue</span>
+            <span>Contact</span>
+            <span>Submit</span>
+          </div>
+
+          <PhotoUploader
+            id="report-photo"
+            label="Photo Evidence"
+            file={photoFile}
+            onChange={setPhotoFile}
+            hint="Upload evidence of the issue. Do not upload ID cards, private documents, unnecessary faces, or unrelated personal information."
+          />
+
           <div className="form-group">
             <label>Issue Type</label>
 
@@ -985,24 +1037,6 @@ function ReportIssue({ addReport }) {
           )}
 
           <div className="form-group">
-            <label>Photo Evidence</label>
-
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(event) =>
-                setPhotoFile(
-                  event.target.files?.[0] || null
-                )
-              }
-            />
-
-            <small className="form-hint">
-              Upload a clear image under 5MB.
-            </small>
-          </div>
-
-          <div className="form-group">
             <label>Description</label>
 
             <textarea
@@ -1013,6 +1047,24 @@ function ReportIssue({ addReport }) {
               rows="5"
               required
             />
+          </div>
+
+          <div className="form-group checkbox-group consent-box">
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={consentAccepted}
+                onChange={(event) =>
+                  setConsentAccepted(event.target.checked)
+                }
+                required
+              />
+              I understand that report details, location, and report photo may appear publicly. Contact details stay private and are used only for follow-up and response coordination.
+            </label>
+            <small className="form-hint">
+              Read the <Link to="/privacy">Privacy Policy</Link> and{" "}
+              <Link to="/terms">Terms of Use</Link>.
+            </small>
           </div>
 
           <button
@@ -1444,166 +1496,6 @@ function TrackReport() {
           </div>
         </section>
       )}
-    </main>
-  );
-}
-
-function MapView({ reports }) {
-  const counts = {
-    Critical: reports.filter(
-      (report) => report.riskLabel === "Critical"
-    ).length,
-
-    High: reports.filter(
-      (report) => report.riskLabel === "High"
-    ).length,
-
-    Medium: reports.filter(
-      (report) => report.riskLabel === "Medium"
-    ).length,
-  };
-
-  const validReports = reports.filter(
-    (report) =>
-      Number.isFinite(report.latitude) &&
-      Number.isFinite(report.longitude)
-  );
-
-  return (
-    <main className="page map-page">
-      <section className="section-heading">
-        <span className="section-tag">
-          Live Community Mapping
-        </span>
-
-        <h1>Community Risk Map</h1>
-
-        <p>
-          View reported water and sanitation risks.
-        </p>
-      </section>
-
-      <section className="map-summary-grid">
-        {Object.entries(counts).map(
-          ([label, count]) => (
-            <div
-              className={`map-summary-card ${label.toLowerCase()}-card`}
-              key={label}
-            >
-              <h2>{count}</h2>
-
-              <p>{label} hotspots</p>
-            </div>
-          )
-        )}
-      </section>
-
-      <section className="map-layout">
-        <div className="map-card">
-          <MapContainer
-            center={[-1.2921, 36.8219]}
-            zoom={12}
-            scrollWheelZoom
-            className="leaflet-map"
-          >
-            <TileLayer
-              attribution="&copy; OpenStreetMap contributors"
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-
-            {validReports.map((report) => (
-              <Marker
-                key={report.id}
-                position={[
-                  report.latitude,
-                  report.longitude,
-                ]}
-              >
-                <Popup>
-                  <div className="map-popup">
-                    <h3>{report.issueType}</h3>
-
-                    <p>
-                      <strong>Code:</strong>{" "}
-                      {report.trackingCode}
-                    </p>
-
-                    <p>
-                      <strong>Location:</strong>{" "}
-                      {report.locationName}
-                    </p>
-
-                    <p>
-                      <strong>Risk:</strong>{" "}
-                      {report.riskLabel} ·{" "}
-                      {report.riskScore}/100
-                    </p>
-
-                    <p>
-                      <strong>Status:</strong>{" "}
-                      {report.status}
-                    </p>
-
-                    {report.photoUrl && (
-                      <img
-                        src={report.photoUrl}
-                        alt={report.issueType}
-                        className="popup-photo"
-                      />
-                    )}
-                  </div>
-                </Popup>
-              </Marker>
-            ))}
-          </MapContainer>
-        </div>
-
-        <div className="map-side-panel">
-          <h2>Priority Response Queue</h2>
-
-          <p>
-            Reports are ranked by risk score.
-          </p>
-
-          {reports.length === 0 ? (
-            <p>
-              No reports have been submitted yet.
-            </p>
-          ) : (
-            <div className="map-queue">
-              {[...reports]
-                .sort(
-                  (a, b) =>
-                    b.riskScore - a.riskScore
-                )
-                .map((report) => (
-                  <div
-                    className="queue-item"
-                    key={report.id}
-                  >
-                    <div>
-                      <h3>{report.issueType}</h3>
-
-                      <p>
-                        {report.locationName}
-                      </p>
-
-                      <small>
-                        {report.status}
-                      </small>
-                    </div>
-
-                    <span
-                      className={`risk-pill small ${report.riskLabel.toLowerCase()}`}
-                    >
-                      {report.riskScore}
-                    </span>
-                  </div>
-                ))}
-            </div>
-          )}
-        </div>
-      </section>
     </main>
   );
 }
@@ -3098,6 +2990,9 @@ function RequestAccessPage() {
 
   const [submitted, setSubmitted] =
     useState(false);
+  const [consentAccepted, setConsentAccepted] =
+    useState(false);
+  const [message, setMessage] = useState("");
 
   function handleChange(event) {
     const { name, value } = event.target;
@@ -3111,7 +3006,15 @@ function RequestAccessPage() {
   async function handleSubmit(event) {
     event.preventDefault();
 
+    if (!consentAccepted) {
+      setMessage(
+        "Please confirm the access-request data notice before submitting."
+      );
+      return;
+    }
+
     setIsSubmitting(true);
+    setMessage("");
 
     const { error } = await supabase
       .from("access_requests")
@@ -3135,8 +3038,8 @@ function RequestAccessPage() {
         error.message
       );
 
-      alert(
-        "Your access request could not be submitted."
+      setMessage(
+        "Your access request could not be submitted. Please try again."
       );
 
       setIsSubmitting(false);
@@ -3194,6 +3097,12 @@ function RequestAccessPage() {
           className="report-form track-form"
           onSubmit={handleSubmit}
         >
+          {message && (
+            <p className="form-message error-message" aria-live="polite">
+              {message}
+            </p>
+          )}
+
           <div className="form-group">
             <label>Full Name</label>
 
@@ -3283,6 +3192,24 @@ function RequestAccessPage() {
               rows="5"
               required
             />
+          </div>
+
+          <div className="form-group checkbox-group consent-box">
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={consentAccepted}
+                onChange={(event) =>
+                  setConsentAccepted(event.target.checked)
+                }
+                required
+              />
+              I understand that this request will be reviewed by Make Kenya Clean administrators and that my account details will be used for role approval, access control, and operational coordination.
+            </label>
+            <small className="form-hint">
+              Read the <Link to="/privacy">Privacy Policy</Link> and{" "}
+              <Link to="/terms">Terms of Use</Link>.
+            </small>
           </div>
 
           <button
@@ -4704,67 +4631,67 @@ function App() {
 
   async function uploadResolutionPhoto(
     assignmentId,
-    file
+    file,
+    onStatus
   ) {
-    if (!file?.type?.startsWith("image/")) {
+    try {
+      onStatus?.("Compressing evidence photo...");
+      const preparedImage = await prepareImageForUpload(file);
+      const extension =
+        preparedImage.extension || extensionForImage(file);
+      const randomPart =
+        globalThis.crypto?.randomUUID?.() ||
+        `${Date.now()}-${Math.random()}`;
+      const filePath = `${profile?.organization_id || user?.id}/${assignmentId}/${randomPart}.${extension}`;
+
+      onStatus?.("Uploading evidence photo...");
+      const { error: uploadError } =
+        await supabase.storage
+          .from("resolution-evidence")
+          .upload(filePath, preparedImage.blob, {
+            cacheControl: "3600",
+            upsert: false,
+            contentType: preparedImage.blob.type,
+          });
+
+      if (uploadError) {
+        return {
+          success: false,
+          error: uploadError.message,
+        };
+      }
+
+      return {
+        success: true,
+        photoPath: filePath,
+      };
+    } catch (error) {
       return {
         success: false,
-        error: "Please upload an image file.",
+        error: error.message || "Evidence upload failed.",
       };
     }
-
-    if (file.size > 5 * 1024 * 1024) {
-      return {
-        success: false,
-        error: "Image must be under 5MB.",
-      };
-    }
-
-    const extension =
-      file.name.split(".").pop()?.toLowerCase() ||
-      "jpg";
-    const randomPart =
-      globalThis.crypto?.randomUUID?.() ||
-      `${Date.now()}-${Math.random()}`;
-    const filePath = `${profile?.organization_id || user?.id}/${assignmentId}/${randomPart}.${extension}`;
-
-    const { error: uploadError } =
-      await supabase.storage
-        .from("resolution-evidence")
-        .upload(filePath, file, {
-          cacheControl: "3600",
-          upsert: false,
-        });
-
-    if (uploadError) {
-      return {
-        success: false,
-        error: uploadError.message,
-      };
-    }
-
-    return {
-      success: true,
-      photoPath: filePath,
-    };
   }
 
   async function submitResolutionEvidence(
     assignmentId,
     file,
     note,
-    completedAt
+    completedAt,
+    onStatus
   ) {
     const uploadResult =
       await uploadResolutionPhoto(
         assignmentId,
-        file
+        file,
+        onStatus
       );
 
     if (!uploadResult.success) {
       return uploadResult;
     }
 
+    onStatus?.("Submitting resolution evidence...");
     const { data, error } = await supabase.rpc(
       "submit_resolution_evidence",
       {
@@ -4846,7 +4773,7 @@ function App() {
   }
 
   return (
-    <BrowserRouter>
+    <>
       <nav className="navbar">
         <Link
           to="/"
@@ -4923,7 +4850,17 @@ function App() {
           </p>
         </main>
       ) : (
-        <Routes>
+        <Suspense
+          fallback={
+            <main className="page">
+              <section className="dashboard-panel">
+                <h1>Loading page...</h1>
+                <p>Preparing the requested Make Kenya Clean view.</p>
+              </section>
+            </main>
+          }
+        >
+          <Routes>
           <Route
             path="/"
             element={
@@ -4976,7 +4913,7 @@ function App() {
           <Route
             path="/map"
             element={
-              <MapView
+              <PublicMapPage
                 reports={publicReports}
               />
             }
@@ -5000,6 +4937,16 @@ function App() {
           <Route
             path="/update-password"
             element={<UpdatePasswordPage />}
+          />
+
+          <Route
+            path="/privacy"
+            element={<PrivacyPolicyPage />}
+          />
+
+          <Route
+            path="/terms"
+            element={<TermsPage />}
           />
 
           <Route
@@ -5087,9 +5034,15 @@ function App() {
               </ProtectedPage>
             }
           />
-        </Routes>
+          </Routes>
+        </Suspense>
       )}
-    </BrowserRouter>
+      <footer className="app-footer">
+        <span>Make Kenya Clean</span>
+        <Link to="/privacy">Privacy Policy</Link>
+        <Link to="/terms">Terms of Use</Link>
+      </footer>
+    </>
   );
 }
 
