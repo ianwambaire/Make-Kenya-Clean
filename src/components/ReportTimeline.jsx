@@ -1,4 +1,16 @@
+import { CheckCircle2, Circle } from "lucide-react";
 import { formatDate } from "../services/reports";
+
+const actionStatuses = new Set([
+  "Site Visit",
+  "Follow-Up",
+  "Note",
+  "Update",
+]);
+
+function isActionEntry(status) {
+  return actionStatuses.has(status);
+}
 
 export default function ReportTimeline({
   updates,
@@ -14,37 +26,58 @@ export default function ReportTimeline({
               .includes("staff only")
         );
 
+  const latestIndex = safeUpdates.length - 1;
+
   return (
     <div className="report-timeline">
       {safeUpdates.length === 0 ? (
-        <p>No timeline updates have been recorded.</p>
+        <p>No timeline updates have been recorded yet.</p>
       ) : (
-        safeUpdates.map((update, index) => (
-          <div
-            className="timeline-item"
-            key={update.id || `${update.status}-${index}`}
-          >
-            <div className="timeline-marker">
-              <span>{index + 1}</span>
-            </div>
+        safeUpdates.map((update, index) => {
+          const isLatest = index === latestIndex;
+          const isAction = isActionEntry(update.status);
 
-            <div className="timeline-content">
-              <div className="timeline-header">
-                <h3>{update.status}</h3>
-
-                <span>{formatDate(update.created_at)}</span>
+          return (
+            <div
+              className={`timeline-item ${
+                isLatest ? "is-latest" : ""
+              } ${isAction ? "is-action" : "is-status"}`}
+              key={update.id || `${update.status}-${index}`}
+            >
+              <div className="timeline-marker" aria-hidden="true">
+                {isLatest ? (
+                  <CheckCircle2 size={16} />
+                ) : (
+                  <Circle size={10} />
+                )}
               </div>
 
-              {update.note && <p>{update.note}</p>}
+              <div className="timeline-content">
+                <div className="timeline-header">
+                  <h3>
+                    {update.status}
+                    {isLatest && (
+                      <span className="timeline-current-badge">
+                        Current
+                      </span>
+                    )}
+                  </h3>
 
-              <small>
-                Updated by{" "}
-                {update.updated_by_name ||
-                  "Make Kenya Clean"}
-              </small>
+                  <time dateTime={update.created_at}>
+                    {formatDate(update.created_at)}
+                  </time>
+                </div>
+
+                {update.note && <p>{update.note}</p>}
+
+                <small>
+                  {isAction ? "Action logged by " : "Updated by "}
+                  {update.updated_by_name || "Make Kenya Clean"}
+                </small>
+              </div>
             </div>
-          </div>
-        ))
+          );
+        })
       )}
     </div>
   );

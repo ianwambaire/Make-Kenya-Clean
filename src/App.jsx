@@ -5,7 +5,7 @@ import {
   useEffect,
   useState,
 } from "react";
-import { Link, Route, Routes } from "react-router-dom";
+import { Link, NavLink, Route, Routes } from "react-router-dom";
 import {
   AlertTriangle,
   ArrowRight,
@@ -4784,40 +4784,43 @@ function App() {
         </Link>
 
         <div className="nav-links">
-          <Link to="/">
+          <NavLink
+            to="/"
+            end
+          >
             <Home size={18} />
             Home
-          </Link>
+          </NavLink>
 
-          <Link to="/report">
+          <NavLink to="/report">
             Report
-          </Link>
+          </NavLink>
 
-          <Link to="/track">
+          <NavLink to="/track">
             Track
-          </Link>
+          </NavLink>
 
-          <Link to="/map">
+          <NavLink to="/map">
             Map
-          </Link>
+          </NavLink>
 
-          <Link to="/dashboard">
+          <NavLink to="/dashboard">
             <LayoutDashboard size={18} />
             Dashboard
-          </Link>
+          </NavLink>
 
-          <Link to="/champions">
+          <NavLink to="/champions">
             Champions
-          </Link>
+          </NavLink>
 
           {profile?.role === "admin" && (
             <>
-              <Link to="/admin/organizations">
+              <NavLink to="/admin/organizations">
                 Organizations
-              </Link>
-              <Link to="/admin/access-requests">
+              </NavLink>
+              <NavLink to="/admin/access-requests">
                 Access Requests
-              </Link>
+              </NavLink>
             </>
           )}
 
@@ -4832,9 +4835,9 @@ function App() {
               Logout
             </button>
           ) : (
-            <Link to="/login">
+            <NavLink to="/login">
               Staff Login
-            </Link>
+            </NavLink>
           )}
         </div>
       </nav>
