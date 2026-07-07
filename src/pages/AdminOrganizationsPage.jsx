@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Building2, UserMinus, UserPlus } from "lucide-react";
 import OrganizationCard from "../components/OrganizationCard";
 import { supabase } from "../lib/supabase";
 import {
@@ -141,6 +142,10 @@ export default function AdminOrganizationsPage({
     });
   });
 
+  const activeOrganizationsCount = organizations.filter(
+    (organization) => organization.status === "Active"
+  ).length;
+
   function updateForm(name, value) {
     setForm((current) => ({
       ...current,
@@ -256,6 +261,37 @@ export default function AdminOrganizationsPage({
         </p>
       </section>
 
+      <section className="stats-grid org-stats-grid">
+        <div className="stat-card">
+          <Building2 size={26} />
+          <div>
+            <p>Total Organizations</p>
+            <h2>{organizations.length}</h2>
+          </div>
+        </div>
+        <div className="stat-card success">
+          <Building2 size={26} />
+          <div>
+            <p>Active</p>
+            <h2>{activeOrganizationsCount}</h2>
+          </div>
+        </div>
+        <div className="stat-card">
+          <UserPlus size={26} />
+          <div>
+            <p>Organization Users</p>
+            <h2>{organizationProfiles.length}</h2>
+          </div>
+        </div>
+        <div className="stat-card danger">
+          <UserMinus size={26} />
+          <div>
+            <p>Unassigned Users</p>
+            <h2>{unassignedOrganizationProfiles.length}</h2>
+          </div>
+        </div>
+      </section>
+
       {message && (
         <p className="form-message success-message">{message}</p>
       )}
@@ -347,11 +383,16 @@ export default function AdminOrganizationsPage({
               className="approve-btn"
               disabled={busy === "save"}
             >
-              {editingOrganizationId ? "Save" : "Create"}
+              {busy === "save"
+                ? "Saving..."
+                : editingOrganizationId
+                ? "Save Changes"
+                : "Create Organization"}
             </button>
             {editingOrganizationId && (
               <button
                 type="button"
+                className="secondary-btn"
                 onClick={() => {
                   setEditingOrganizationId("");
                   setForm(emptyForm);
@@ -391,20 +432,28 @@ export default function AdminOrganizationsPage({
             ))}
           </select>
 
-          {selectedOrganization && (
+          {selectedOrganization ? (
             <>
-              <div className="mini-list">
-                <strong>Current Members</strong>
+              <div className="mini-list membership-list">
+                <strong>
+                  Current Members ({selectedMembers.length})
+                </strong>
                 {selectedMembers.length === 0 ? (
-                  <p>No members assigned.</p>
+                  <p>No members assigned yet.</p>
                 ) : (
                   selectedMembers.map((member) => (
-                    <p key={member.id}>
-                      {member.full_name ||
-                        member.organization_name ||
-                        member.id}
+                    <div
+                      className="membership-row"
+                      key={member.id}
+                    >
+                      <span>
+                        {member.full_name ||
+                          member.organization_name ||
+                          member.id}
+                      </span>
                       <button
                         type="button"
+                        className="reject-btn compact-link"
                         disabled={
                           busy === `remove:${member.id}`
                         }
@@ -412,27 +461,38 @@ export default function AdminOrganizationsPage({
                           handleRemoveProfile(member.id)
                         }
                       >
-                        Remove
+                        {busy === `remove:${member.id}`
+                          ? "Removing..."
+                          : "Remove"}
                       </button>
-                    </p>
+                    </div>
                   ))
                 )}
               </div>
 
-              <div className="mini-list">
-                <strong>Unassigned Organization Users</strong>
+              <div className="mini-list membership-list">
+                <strong>
+                  Unassigned Organization Users (
+                  {unassignedOrganizationProfiles.length})
+                </strong>
                 {unassignedOrganizationProfiles.length ===
                 0 ? (
                   <p>No unassigned organization users.</p>
                 ) : (
                   unassignedOrganizationProfiles.map(
                     (member) => (
-                      <p key={member.id}>
-                        {member.full_name ||
-                          member.organization_name ||
-                          member.id}
+                      <div
+                        className="membership-row"
+                        key={member.id}
+                      >
+                        <span>
+                          {member.full_name ||
+                            member.organization_name ||
+                            member.id}
+                        </span>
                         <button
                           type="button"
+                          className="approve-btn compact-link"
                           disabled={
                             busy ===
                             `assign:${member.id}`
@@ -441,14 +501,21 @@ export default function AdminOrganizationsPage({
                             handleAssignProfile(member.id)
                           }
                         >
-                          Assign
+                          {busy === `assign:${member.id}`
+                            ? "Assigning..."
+                            : "Assign"}
                         </button>
-                      </p>
+                      </div>
                     )
                   )
                 )}
               </div>
             </>
+          ) : (
+            <p className="membership-empty">
+              Select an organization above to manage its
+              members.
+            </p>
           )}
         </section>
       </section>
@@ -459,29 +526,33 @@ export default function AdminOrganizationsPage({
           <p>Active and suspended response partners.</p>
         </div>
 
-        <div className="organization-card-grid">
-          {organizations.map((organization) => (
-            <OrganizationCard
-              organization={organization}
-              metrics={
-                metricsByOrganization.get(organization.id) || {
-                  members: 0,
-                  assigned: 0,
-                  active: 0,
-                  resolved: 0,
+        {organizations.length === 0 ? (
+          <p>No organizations have been created yet.</p>
+        ) : (
+          <div className="organization-card-grid">
+            {organizations.map((organization) => (
+              <OrganizationCard
+                organization={organization}
+                metrics={
+                  metricsByOrganization.get(organization.id) || {
+                    members: 0,
+                    assigned: 0,
+                    active: 0,
+                    resolved: 0,
+                  }
                 }
-              }
-              key={organization.id}
-              onOpen={() =>
-                setSelectedOrganizationId(organization.id)
-              }
-              onEdit={() => startEditing(organization)}
-              onToggleStatus={() =>
-                handleToggleStatus(organization)
-              }
-            />
-          ))}
-        </div>
+                key={organization.id}
+                onOpen={() =>
+                  setSelectedOrganizationId(organization.id)
+                }
+                onEdit={() => startEditing(organization)}
+                onToggleStatus={() =>
+                  handleToggleStatus(organization)
+                }
+              />
+            ))}
+          </div>
+        )}
       </section>
     </main>
   );

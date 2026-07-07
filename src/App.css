@@ -2803,3 +2803,126 @@ textarea:focus-visible {
 .error-panel .access-request-actions {
   justify-content: center;
 }
+.org-stats-grid {
+  margin-bottom: var(--sp-5);
+}
+
+.membership-list {
+  margin-top: var(--sp-3);
+}
+
+.membership-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+}
+
+.membership-row:last-child {
+  border-bottom: none;
+}
+
+.membership-empty {
+  margin-top: var(--sp-4);
+  padding: var(--sp-4);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-sm);
+  color: var(--muted);
+  font-size: 14px;
+  text-align: center;
+}
+.map-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-4);
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.map-filter-bar svg {
+  color: var(--teal);
+  flex-shrink: 0;
+}
+
+.map-filter-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.map-filter-chip {
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--body);
+  border-radius: var(--r-pill);
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: unset;
+}
+
+.map-filter-chip:hover {
+  border-color: var(--teal);
+}
+
+.map-filter-chip.active {
+  background: var(--teal);
+  border-color: var(--teal);
+  color: #ffffff;
+}
+
+.map-empty-state {
+  min-height: 320px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: var(--sp-5);
+  color: var(--muted);
+}
+
+.queue-empty {
+  padding: var(--sp-4);
+  text-align: center;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-sm);
+}
+.legal-page {
+  max-width: 720px;
+}
+
+.legal-content {
+  padding: var(--sp-6);
+  font-size: 16px;
+}
+
+.legal-content h2 {
+  font-size: 19px;
+  margin: var(--sp-5) 0 var(--sp-2);
+}
+
+.legal-content h2:first-child {
+  margin-top: 0;
+}
+
+.legal-content p {
+  max-width: 62ch;
+}
+
+@media (max-width: 700px) {
+  .legal-content {
+    padding: var(--sp-4);
+    font-size: 15px;
+  }
+
+  .legal-content h2 {
+    font-size: 17px;
+  }
+}
