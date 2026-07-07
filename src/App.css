@@ -1548,6 +1548,70 @@ textarea:focus {
   cursor: not-allowed;
 }
 
+.operations-panel {
+  margin-bottom: 24px;
+  display: grid;
+  gap: 18px;
+}
+
+.operation-card-list {
+  display: grid;
+  gap: 16px;
+}
+
+.operation-card {
+  border: 1px solid #d9e2ec;
+  background: #f8fbfc;
+  border-radius: 18px;
+  padding: 18px;
+  display: grid;
+  gap: 14px;
+}
+
+.operation-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.operation-card-header h3 {
+  color: #102a43;
+  margin-bottom: 4px;
+}
+
+.assignment-summary,
+.mini-list {
+  background: #ffffff;
+  border: 1px solid #d9e2ec;
+  border-radius: 14px;
+  padding: 14px;
+  display: grid;
+  gap: 6px;
+}
+
+.assignment-summary span,
+.mini-list p {
+  color: #486581;
+  font-size: 14px;
+}
+
+.assignment-controls {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.8fr) minmax(220px, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.organization-workflow {
+  display: grid;
+  gap: 12px;
+}
+
+.confirmation-panel {
+  margin-top: 24px;
+}
+
 @media (max-width: 900px) {
   .track-layout {
     grid-template-columns: 1fr;
@@ -1559,5 +1623,13 @@ textarea:focus {
 
   .access-request-header {
     flex-direction: column;
+  }
+
+  .operation-card-header {
+    flex-direction: column;
+  }
+
+  .assignment-controls {
+    grid-template-columns: 1fr;
   }
 }

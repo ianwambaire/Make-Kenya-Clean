@@ -49,11 +49,11 @@ L.Icon.Default.mergeOptions({
     "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
 });
 
-const statuses = [
-  "Reported",
-  "Verified",
+const assignmentStatuses = [
+  "Unassigned",
   "Assigned",
   "In Progress",
+  "Awaiting Resolution Review",
   "Resolved",
   "Community Confirmed",
 ];
@@ -130,6 +130,76 @@ const profileColumns = [
   "role",
   "area",
   "organization_name",
+  "organization_id",
+].join(", ");
+
+const organizationColumns = [
+  "id",
+  "name",
+  "organization_type",
+  "area",
+  "contact_email",
+  "contact_phone",
+  "status",
+  "created_at",
+].join(", ");
+
+const assignmentColumns = [
+  "id",
+  "report_id",
+  "organization_id",
+  "assigned_by",
+  "assigned_at",
+  "accepted_by",
+  "accepted_at",
+  "status",
+  "note",
+  "created_at",
+  "updated_at",
+  `reports(${staffReportColumns})`,
+  `organizations(${organizationColumns})`,
+].join(", ");
+
+const actionColumns = [
+  "id",
+  "report_id",
+  "assignment_id",
+  "organization_id",
+  "action_type",
+  "note",
+  "visibility",
+  "created_by",
+  "created_at",
+].join(", ");
+
+const evidenceColumns = [
+  "id",
+  "report_id",
+  "assignment_id",
+  "organization_id",
+  "photo_path",
+  "note",
+  "completed_at",
+  "submitted_by",
+  "submitted_at",
+  "review_status",
+  "reviewed_by",
+  "reviewed_at",
+  "review_note",
+].join(", ");
+
+const communityConfirmationColumns = [
+  "id",
+  "report_id",
+  "tracking_code",
+  "confirmation",
+  "note",
+  "submitted_at",
+  "review_status",
+  "reviewed_by",
+  "reviewed_at",
+  "review_note",
+  `reports(${staffReportColumns})`,
 ].join(", ");
 
 function toSupabaseReport(report) {
@@ -189,6 +259,27 @@ function fromSupabaseReport(report) {
     createdAt: report.created_at,
     photoUrl: report.photo_url || "",
   };
+}
+
+function fromAssignment(assignment) {
+  return {
+    ...assignment,
+    report: assignment.reports
+      ? fromSupabaseReport(assignment.reports)
+      : null,
+    organization:
+      assignment.organizations || null,
+  };
+}
+
+function getActiveAssignment(assignments, reportId) {
+  return assignments.find(
+    (assignment) =>
+      assignment.report_id === reportId &&
+      ["Assigned", "Accepted"].includes(
+        assignment.status
+      )
+  );
 }
 
 function calculateRiskScore(issueType, urgency, nearSensitiveArea) {
@@ -1016,6 +1107,19 @@ function TrackReport() {
   const [isSearching, setIsSearching] =
     useState(false);
 
+  const [confirmationNote, setConfirmationNote] =
+    useState("");
+
+  const [
+    confirmationMessage,
+    setConfirmationMessage,
+  ] = useState("");
+
+  const [
+    isSubmittingConfirmation,
+    setIsSubmittingConfirmation,
+  ] = useState(false);
+
   async function handleTrackReport(event) {
     event.preventDefault();
 
@@ -1026,6 +1130,7 @@ function TrackReport() {
     setHasSearched(false);
     setSearchedReport(null);
     setUpdates([]);
+    setConfirmationMessage("");
 
     const {
       data: reportData,
@@ -1081,6 +1186,55 @@ function TrackReport() {
     setUpdates(updateData || []);
     setHasSearched(true);
     setIsSearching(false);
+  }
+
+  async function handleCommunityConfirmation(
+    confirmation
+  ) {
+    if (!searchedReport || isSubmittingConfirmation) {
+      return;
+    }
+
+    setIsSubmittingConfirmation(true);
+    setConfirmationMessage("");
+
+    const { data, error } = await supabase.rpc(
+      "submit_community_confirmation",
+      {
+        p_tracking_code:
+          searchedReport.trackingCode,
+        p_confirmation: confirmation,
+        p_note: confirmationNote.trim(),
+      }
+    );
+
+    if (error || data?.success === false) {
+      setConfirmationMessage(
+        error?.message ||
+          data?.error ||
+          "Community confirmation could not be submitted."
+      );
+      setIsSubmittingConfirmation(false);
+      return;
+    }
+
+    setConfirmationMessage(
+      confirmation === "Confirmed"
+        ? "Thank you. Your feedback has been submitted for review."
+        : "Thank you. Your dispute has been submitted for review."
+    );
+
+    const { data: updateData } = await supabase
+      .from("report_updates")
+      .select(publicTimelineColumns)
+      .eq("report_id", searchedReport.id)
+      .order("created_at", {
+        ascending: true,
+      });
+
+    setUpdates(updateData || updates);
+    setConfirmationNote("");
+    setIsSubmittingConfirmation(false);
   }
 
   return (
@@ -1253,6 +1407,70 @@ function TrackReport() {
           </div>
         </section>
       )}
+
+      {searchedReport?.status === "Resolved" && (
+        <section className="dashboard-panel confirmation-panel">
+          <div className="panel-header">
+            <h2>Community Confirmation</h2>
+
+            <p>
+              Was this issue actually resolved?
+              Feedback is reviewed before any final
+              status change.
+            </p>
+          </div>
+
+          {confirmationMessage && (
+            <div className="form-message success-message">
+              {confirmationMessage}
+            </div>
+          )}
+
+          <div className="form-group">
+            <label>Optional Note</label>
+
+              <textarea
+                rows="3"
+                maxLength="500"
+                value={confirmationNote}
+              onChange={(event) =>
+                setConfirmationNote(
+                  event.target.value
+                )
+              }
+              placeholder="Share what you observed..."
+            />
+          </div>
+
+          <div className="access-request-actions">
+            <button
+              type="button"
+              className="approve-btn"
+              disabled={isSubmittingConfirmation}
+              onClick={() =>
+                handleCommunityConfirmation(
+                  "Confirmed"
+                )
+              }
+            >
+              Yes, resolved
+            </button>
+
+            <button
+              type="button"
+              className="reject-btn"
+              disabled={isSubmittingConfirmation}
+              onClick={() =>
+                handleCommunityConfirmation(
+                  "Disputed"
+                )
+              }
+            >
+              No, still unresolved
+            </button>
+          </div>
+        </section>
+      )}
     </main>
   );
 }
@@ -1417,10 +1635,537 @@ function MapView({ reports }) {
   );
 }
 
+function OrganizationDashboard({
+  profile,
+  operations,
+  onAcceptAssignment,
+  onAddAction,
+  onSubmitResolution,
+}) {
+  const assignments = operations?.assignments || [];
+  const actions = operations?.actions || [];
+  const evidence = operations?.evidence || [];
+  const [busyOperation, setBusyOperation] =
+    useState("");
+  const [actionForms, setActionForms] =
+    useState({});
+  const [resolutionForms, setResolutionForms] =
+    useState({});
+
+  const newlyAssigned = assignments.filter(
+    (assignment) => assignment.status === "Assigned"
+  );
+  const activeAssignments = assignments.filter(
+    (assignment) => assignment.status === "Accepted"
+  );
+  const awaitingReview = assignments.filter(
+    (assignment) =>
+      assignment.report?.status ===
+      "Resolution Submitted"
+  );
+  const completedAssignments = assignments.filter(
+    (assignment) =>
+      assignment.status === "Completed" ||
+      ["Resolved", "Community Confirmed"].includes(
+        assignment.report?.status
+      )
+  );
+
+  async function handleAccept(assignmentId) {
+    setBusyOperation(`accept:${assignmentId}`);
+    const result = await onAcceptAssignment(
+      assignmentId
+    );
+    setBusyOperation("");
+
+    if (!result?.success) {
+      alert(
+        result?.error ||
+          "Assignment could not be accepted."
+      );
+    }
+  }
+
+  async function handleAddAction(assignmentId) {
+    const form = actionForms[assignmentId] || {};
+
+    if (!form.note?.trim()) {
+      alert("Add a short action note first.");
+      return;
+    }
+
+    setBusyOperation(`action:${assignmentId}`);
+
+    const result = await onAddAction(
+      assignmentId,
+      form.actionType || "Other",
+      form.note.trim(),
+      form.visibility || "Public"
+    );
+
+    setBusyOperation("");
+
+    if (!result?.success) {
+      alert(
+        result?.error ||
+          "The action update could not be saved."
+      );
+      return;
+    }
+
+    setActionForms((current) => ({
+      ...current,
+      [assignmentId]: {
+        actionType: "Inspection",
+        visibility: "Public",
+        note: "",
+      },
+    }));
+  }
+
+  async function handleSubmitResolution(
+    assignmentId
+  ) {
+    const form = resolutionForms[assignmentId] || {};
+
+    if (!form.file) {
+      alert("Upload resolution photo evidence first.");
+      return;
+    }
+
+    setBusyOperation(`resolution:${assignmentId}`);
+
+    const result = await onSubmitResolution(
+      assignmentId,
+      form.file,
+      form.note || "",
+      form.completedAt || ""
+    );
+
+    setBusyOperation("");
+
+    if (!result?.success) {
+      alert(
+        result?.error ||
+          "Resolution evidence could not be submitted."
+      );
+      return;
+    }
+
+    setResolutionForms((current) => ({
+      ...current,
+      [assignmentId]: {
+        note: "",
+        completedAt: "",
+        file: null,
+      },
+    }));
+  }
+
+  function renderAssignmentCard(assignment, mode) {
+    const report = assignment.report;
+    const actionForm =
+      actionForms[assignment.id] || {
+        actionType: "Inspection",
+        visibility: "Public",
+        note: "",
+      };
+    const resolutionForm =
+      resolutionForms[assignment.id] || {};
+    const assignmentActions = actions.filter(
+      (action) =>
+        action.assignment_id === assignment.id
+    );
+    const assignmentEvidence = evidence.filter(
+      (item) =>
+        item.assignment_id === assignment.id
+    );
+
+    return (
+      <article
+        className="operation-card"
+        key={assignment.id}
+      >
+        <div className="operation-card-header">
+          <div>
+            <h3>
+              {report?.issueType || "Assigned report"}
+            </h3>
+
+            <p>
+              {report?.locationName} ·{" "}
+              {report?.trackingCode}
+            </p>
+          </div>
+
+          <span
+            className={`risk-pill small ${report?.riskLabel?.toLowerCase() || "medium"}`}
+          >
+            {report?.riskScore || 0}
+          </span>
+        </div>
+
+        <p>{report?.description}</p>
+
+        {report?.photoUrl && (
+          <a
+            href={report.photoUrl}
+            target="_blank"
+            rel="noreferrer"
+          >
+            View original evidence
+          </a>
+        )}
+
+        <div className="assignment-summary">
+          <strong>Status: {report?.status}</strong>
+          <span>
+            Assigned {formatDate(assignment.assigned_at)}
+          </span>
+          {assignment.note && (
+            <p>{assignment.note}</p>
+          )}
+        </div>
+
+        {mode === "new" && (
+          <button
+            type="button"
+            className="approve-btn"
+            disabled={
+              busyOperation ===
+              `accept:${assignment.id}`
+            }
+            onClick={() =>
+              handleAccept(assignment.id)
+            }
+          >
+            {busyOperation ===
+            `accept:${assignment.id}`
+              ? "Accepting..."
+              : "Accept Assignment"}
+          </button>
+        )}
+
+        {mode === "active" && (
+          <div className="organization-workflow">
+            <div className="assignment-controls">
+              <select
+                value={actionForm.actionType}
+                onChange={(event) =>
+                  setActionForms((current) => ({
+                    ...current,
+                    [assignment.id]: {
+                      ...actionForm,
+                      actionType:
+                        event.target.value,
+                    },
+                  }))
+                }
+              >
+                {[
+                  "Inspection",
+                  "Team Dispatched",
+                  "Work Started",
+                  "Repair",
+                  "Cleaning",
+                  "Drainage Clearing",
+                  "Water Testing",
+                  "Follow-up",
+                  "Other",
+                ].map((type) => (
+                  <option key={type}>{type}</option>
+                ))}
+              </select>
+
+              <select
+                value={actionForm.visibility}
+                onChange={(event) =>
+                  setActionForms((current) => ({
+                    ...current,
+                    [assignment.id]: {
+                      ...actionForm,
+                      visibility:
+                        event.target.value,
+                    },
+                  }))
+                }
+              >
+                <option>Public</option>
+                <option>Staff Only</option>
+              </select>
+
+              <input
+                type="text"
+                placeholder="Action note"
+                value={actionForm.note}
+                onChange={(event) =>
+                  setActionForms((current) => ({
+                    ...current,
+                    [assignment.id]: {
+                      ...actionForm,
+                      note: event.target.value,
+                    },
+                  }))
+                }
+              />
+
+              <button
+                type="button"
+                className="approve-btn"
+                disabled={
+                  busyOperation ===
+                  `action:${assignment.id}`
+                }
+                onClick={() =>
+                  handleAddAction(assignment.id)
+                }
+              >
+                Add Action
+              </button>
+            </div>
+
+            <div className="assignment-controls">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(event) =>
+                  setResolutionForms((current) => ({
+                    ...current,
+                    [assignment.id]: {
+                      ...resolutionForm,
+                      file:
+                        event.target.files?.[0] ||
+                        null,
+                    },
+                  }))
+                }
+              />
+
+              <input
+                type="date"
+                value={
+                  resolutionForm.completedAt || ""
+                }
+                onChange={(event) =>
+                  setResolutionForms((current) => ({
+                    ...current,
+                    [assignment.id]: {
+                      ...resolutionForm,
+                      completedAt:
+                        event.target.value,
+                    },
+                  }))
+                }
+              />
+
+              <input
+                type="text"
+                placeholder="Resolution note"
+                value={resolutionForm.note || ""}
+                onChange={(event) =>
+                  setResolutionForms((current) => ({
+                    ...current,
+                    [assignment.id]: {
+                      ...resolutionForm,
+                      note: event.target.value,
+                    },
+                  }))
+                }
+              />
+
+              <button
+                type="button"
+                className="approve-btn"
+                disabled={
+                  busyOperation ===
+                  `resolution:${assignment.id}`
+                }
+                onClick={() =>
+                  handleSubmitResolution(
+                    assignment.id
+                  )
+                }
+              >
+                {busyOperation ===
+                `resolution:${assignment.id}`
+                  ? "Submitting..."
+                  : "Request Resolution"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {assignmentActions.length > 0 && (
+          <div className="mini-list">
+            <strong>Latest Actions</strong>
+            {assignmentActions.slice(0, 3).map(
+              (action) => (
+                <p key={action.id}>
+                  {action.action_type}: {action.note}
+                </p>
+              )
+            )}
+          </div>
+        )}
+
+        {assignmentEvidence.length > 0 && (
+          <div className="mini-list">
+            <strong>Resolution Evidence</strong>
+            {assignmentEvidence.map((item) => (
+              <p key={item.id}>
+                {item.review_status} ·{" "}
+                {formatDate(item.submitted_at)}
+              </p>
+            ))}
+          </div>
+        )}
+      </article>
+    );
+  }
+
+  return (
+    <main className="page dashboard-page">
+      <section className="section-heading">
+        <span className="section-tag">
+          Organization Operations
+        </span>
+
+        <h1>Organization Dashboard</h1>
+
+        <p>
+          Logged in as{" "}
+          {profile?.organization_name ||
+            profile?.full_name ||
+            "organization"}.
+        </p>
+      </section>
+
+      <section className="stats-grid">
+        <div className="stat-card">
+          <LayoutDashboard size={30} />
+          <div>
+            <p>New Assignments</p>
+            <h2>{newlyAssigned.length}</h2>
+          </div>
+        </div>
+        <div className="stat-card">
+          <Timer size={30} />
+          <div>
+            <p>Active Cases</p>
+            <h2>{activeAssignments.length}</h2>
+          </div>
+        </div>
+        <div className="stat-card danger">
+          <AlertTriangle size={30} />
+          <div>
+            <p>Awaiting Review</p>
+            <h2>{awaitingReview.length}</h2>
+          </div>
+        </div>
+        <div className="stat-card success">
+          <CheckCircle2 size={30} />
+          <div>
+            <p>Completed</p>
+            <h2>{completedAssignments.length}</h2>
+          </div>
+        </div>
+      </section>
+
+      <section className="dashboard-panel operations-panel">
+        <div className="panel-header">
+          <h2>Newly Assigned</h2>
+          <p>Accept assignments before starting work.</p>
+        </div>
+        <div className="operation-card-list">
+          {newlyAssigned.length === 0 ? (
+            <p>No newly assigned cases.</p>
+          ) : (
+            newlyAssigned.map((assignment) =>
+              renderAssignmentCard(
+                assignment,
+                "new"
+              )
+            )
+          )}
+        </div>
+      </section>
+
+      <section className="dashboard-panel operations-panel">
+        <div className="panel-header">
+          <h2>Active / In Progress</h2>
+          <p>
+            Record action updates and submit resolution
+            evidence.
+          </p>
+        </div>
+        <div className="operation-card-list">
+          {activeAssignments.length === 0 ? (
+            <p>No active cases.</p>
+          ) : (
+            activeAssignments.map((assignment) =>
+              renderAssignmentCard(
+                assignment,
+                "active"
+              )
+            )
+          )}
+        </div>
+      </section>
+
+      <section className="dashboard-panel operations-panel">
+        <div className="panel-header">
+          <h2>Awaiting Resolution Review</h2>
+          <p>
+            Submitted cases waiting for administrator
+            approval.
+          </p>
+        </div>
+        <div className="operation-card-list">
+          {awaitingReview.length === 0 ? (
+            <p>No cases awaiting review.</p>
+          ) : (
+            awaitingReview.map((assignment) =>
+              renderAssignmentCard(
+                assignment,
+                "review"
+              )
+            )
+          )}
+        </div>
+      </section>
+
+      <section className="dashboard-panel operations-panel">
+        <div className="panel-header">
+          <h2>Completed</h2>
+          <p>Resolved and confirmed assignments.</p>
+        </div>
+        <div className="operation-card-list">
+          {completedAssignments.length === 0 ? (
+            <p>No completed cases yet.</p>
+          ) : (
+            completedAssignments.map((assignment) =>
+              renderAssignmentCard(
+                assignment,
+                "completed"
+              )
+            )
+          )}
+        </div>
+      </section>
+    </main>
+  );
+}
+
 function Dashboard({
   reports,
-  updateReportStatus,
   profile,
+  operations,
+  onAssignReport,
+  onAcceptAssignment,
+  onAddAction,
+  onSubmitResolution,
+  onReviewResolution,
+  onReviewCommunityConfirmation,
 }) {
   const totalReports = reports.length;
 
@@ -1449,21 +2194,204 @@ function Dashboard({
   const canManageReports =
     profile?.role === "admin";
 
-  async function handleStatusChange(
-    reportId,
-    newStatus
+  const [
+    activeOperationsFilter,
+    setActiveOperationsFilter,
+  ] = useState("Unassigned");
+
+  const [
+    selectedOrganizations,
+    setSelectedOrganizations,
+  ] = useState({});
+
+  const [assignmentNotes, setAssignmentNotes] =
+    useState({});
+
+  const [busyOperation, setBusyOperation] =
+    useState("");
+
+  const organizations =
+    operations?.organizations || [];
+  const assignments =
+    operations?.assignments || [];
+  const evidence =
+    operations?.evidence || [];
+  const communityConfirmations =
+    operations?.communityConfirmations || [];
+
+  const activeAssignments = assignments.filter(
+    (assignment) =>
+      ["Assigned", "Accepted"].includes(
+        assignment.status
+      )
+  );
+
+  const assignedReportIds = new Set(
+    activeAssignments.map(
+      (assignment) => assignment.report_id
+    )
+  );
+
+  const reportsForFilter = reports.filter((report) => {
+    if (activeOperationsFilter === "Unassigned") {
+      return (
+        report.status === "Verified" &&
+        !assignedReportIds.has(report.id)
+      );
+    }
+
+    if (activeOperationsFilter === "Assigned") {
+      return report.status === "Assigned";
+    }
+
+    if (activeOperationsFilter === "In Progress") {
+      return report.status === "In Progress";
+    }
+
+    if (
+      activeOperationsFilter ===
+      "Awaiting Resolution Review"
+    ) {
+      return (
+        report.status === "Resolution Submitted"
+      );
+    }
+
+    if (activeOperationsFilter === "Resolved") {
+      return report.status === "Resolved";
+    }
+
+    if (
+      activeOperationsFilter ===
+      "Community Confirmed"
+    ) {
+      return (
+        report.status === "Community Confirmed"
+      );
+    }
+
+    return true;
+  });
+
+  const pendingEvidence = evidence.filter(
+    (item) => item.review_status === "Submitted"
+  );
+
+  const pendingCommunityConfirmations =
+    communityConfirmations.filter(
+      (item) => item.review_status === "Pending"
+    );
+
+  if (profile?.role === "organization") {
+    return (
+      <OrganizationDashboard
+        profile={profile}
+        operations={operations}
+        onAcceptAssignment={
+          onAcceptAssignment
+        }
+        onAddAction={onAddAction}
+        onSubmitResolution={
+          onSubmitResolution
+        }
+      />
+    );
+  }
+
+  async function handleAssignReport(reportId) {
+    const organizationId =
+      selectedOrganizations[reportId];
+
+    if (!organizationId) {
+      alert("Choose an organization first.");
+      return;
+    }
+
+    setBusyOperation(`assign:${reportId}`);
+
+    const result = await onAssignReport(
+      reportId,
+      organizationId,
+      assignmentNotes[reportId] || ""
+    );
+
+    setBusyOperation("");
+
+    if (!result?.success) {
+      alert(
+        result?.error ||
+          "The report could not be assigned."
+      );
+      return;
+    }
+
+    setAssignmentNotes((current) => ({
+      ...current,
+      [reportId]: "",
+    }));
+  }
+
+  async function handleReviewEvidence(
+    evidenceId,
+    approved
   ) {
     const note = window.prompt(
-      `Add an optional note for the "${newStatus}" update:`
+      approved
+        ? "Optional approval note:"
+        : "Explain what needs more work:"
     );
 
     if (note === null) return;
 
-    await updateReportStatus(
-      reportId,
-      newStatus,
+    setBusyOperation(`review:${evidenceId}`);
+
+    const result = await onReviewResolution(
+      evidenceId,
+      approved,
       note.trim()
     );
+
+    setBusyOperation("");
+
+    if (!result?.success) {
+      alert(
+        result?.error ||
+          "Resolution review could not be saved."
+      );
+    }
+  }
+
+  async function handleReviewCommunityConfirmation(
+    confirmationId,
+    decision
+  ) {
+    const note = window.prompt(
+      decision === "Approved"
+        ? "Optional approval note:"
+        : "Explain why this feedback is rejected:"
+    );
+
+    if (note === null) return;
+
+    setBusyOperation(
+      `community:${confirmationId}`
+    );
+
+    const result =
+      await onReviewCommunityConfirmation(
+        confirmationId,
+        decision,
+        note.trim()
+      );
+
+    setBusyOperation("");
+
+    if (!result?.success) {
+      alert(
+        result?.error ||
+          "Community feedback review could not be saved."
+      );
+    }
   }
 
   return (
@@ -1594,6 +2522,417 @@ function Dashboard({
         </div>
       </section>
 
+      {canManageReports && (
+        <section className="dashboard-panel operations-panel">
+          <div className="panel-header">
+            <div>
+              <h2>Response Coordination</h2>
+
+              <p>
+                Assign verified reports, monitor active
+                cases, and review resolution evidence.
+              </p>
+            </div>
+          </div>
+
+          <div className="request-tabs">
+            {assignmentStatuses.map((status) => (
+              <button
+                type="button"
+                className={
+                  activeOperationsFilter === status
+                    ? "request-tab active"
+                    : "request-tab"
+                }
+                key={status}
+                onClick={() =>
+                  setActiveOperationsFilter(status)
+                }
+              >
+                {status}
+                <span>
+                  {
+                    reports.filter((report) => {
+                      if (status === "Unassigned") {
+                        return (
+                          report.status ===
+                            "Verified" &&
+                          !assignedReportIds.has(
+                            report.id
+                          )
+                        );
+                      }
+                      if (
+                        status ===
+                        "Awaiting Resolution Review"
+                      ) {
+                        return (
+                          report.status ===
+                          "Resolution Submitted"
+                        );
+                      }
+                      return report.status === status;
+                    }).length
+                  }
+                </span>
+              </button>
+            ))}
+          </div>
+
+          <div className="operation-card-list">
+            {reportsForFilter.length === 0 ? (
+              <p>
+                No reports in this operations view.
+              </p>
+            ) : (
+              reportsForFilter.map((report) => {
+                const assignment =
+                  getActiveAssignment(
+                    assignments,
+                    report.id
+                  ) ||
+                  assignments.find(
+                    (item) =>
+                      item.report_id === report.id
+                  );
+
+                return (
+                  <article
+                    className="operation-card"
+                    key={report.id}
+                  >
+                    <div className="operation-card-header">
+                      <div>
+                        <h3>{report.issueType}</h3>
+
+                        <p>
+                          {report.locationName} ·{" "}
+                          {report.trackingCode}
+                        </p>
+                      </div>
+
+                      <span
+                        className={`risk-pill small ${report.riskLabel.toLowerCase()}`}
+                      >
+                        {report.riskScore}
+                      </span>
+                    </div>
+
+                    <p>{report.description}</p>
+
+                    {assignment && (
+                      <div className="assignment-summary">
+                        <strong>
+                          Assigned to{" "}
+                          {assignment.organization
+                            ?.name ||
+                            "organization"}
+                        </strong>
+
+                        <span>
+                          {assignment.status} ·{" "}
+                          {formatDate(
+                            assignment.assigned_at
+                          )}
+                        </span>
+                      </div>
+                    )}
+
+                    {report.status === "Verified" &&
+                      !assignment && (
+                        <div className="assignment-controls">
+                          <select
+                            value={
+                              selectedOrganizations[
+                                report.id
+                              ] || ""
+                            }
+                            onChange={(event) =>
+                              setSelectedOrganizations(
+                                (current) => ({
+                                  ...current,
+                                  [report.id]:
+                                    event.target.value,
+                                })
+                              )
+                            }
+                          >
+                            <option value="">
+                              Select organization
+                            </option>
+
+                            {organizations.map(
+                              (organization) => (
+                                <option
+                                  key={
+                                    organization.id
+                                  }
+                                  value={
+                                    organization.id
+                                  }
+                                >
+                                  {organization.name}
+                                </option>
+                              )
+                            )}
+                          </select>
+
+                          <input
+                            type="text"
+                            placeholder="Assignment note"
+                            value={
+                              assignmentNotes[
+                                report.id
+                              ] || ""
+                            }
+                            onChange={(event) =>
+                              setAssignmentNotes(
+                                (current) => ({
+                                  ...current,
+                                  [report.id]:
+                                    event.target.value,
+                                })
+                              )
+                            }
+                          />
+
+                          <button
+                            type="button"
+                            className="approve-btn"
+                            disabled={
+                              busyOperation ===
+                              `assign:${report.id}`
+                            }
+                            onClick={() =>
+                              handleAssignReport(
+                                report.id
+                              )
+                            }
+                          >
+                            {busyOperation ===
+                            `assign:${report.id}`
+                              ? "Assigning..."
+                              : "Assign"}
+                          </button>
+                        </div>
+                      )}
+                  </article>
+                );
+              })
+            )}
+          </div>
+        </section>
+      )}
+
+      {canManageReports && (
+        <section className="dashboard-panel operations-panel">
+          <div className="panel-header">
+            <div>
+              <h2>Resolution Review</h2>
+
+              <p>
+                Review submitted resolution evidence
+                before marking cases resolved.
+              </p>
+            </div>
+          </div>
+
+          <div className="operation-card-list">
+            {pendingEvidence.length === 0 ? (
+              <p>
+                No resolution evidence is awaiting
+                review.
+              </p>
+            ) : (
+              pendingEvidence.map((item) => {
+                const assignment =
+                  assignments.find(
+                    (current) =>
+                      current.id ===
+                      item.assignment_id
+                  );
+                const report = assignment?.report;
+
+                return (
+                  <article
+                    className="operation-card"
+                    key={item.id}
+                  >
+                    <div className="operation-card-header">
+                      <div>
+                        <h3>
+                          {report?.issueType ||
+                            "Resolution evidence"}
+                        </h3>
+
+                        <p>
+                          {report?.trackingCode} ·{" "}
+                          {assignment?.organization
+                            ?.name ||
+                            "organization"}
+                        </p>
+                      </div>
+
+                      <span className="request-status">
+                        {item.review_status}
+                      </span>
+                    </div>
+
+                    <p>{item.note}</p>
+
+                    {item.signed_url && (
+                      <a
+                        href={item.signed_url}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        View resolution photo
+                      </a>
+                    )}
+
+                    <div className="access-request-actions">
+                      <button
+                        type="button"
+                        className="approve-btn"
+                        disabled={
+                          busyOperation ===
+                          `review:${item.id}`
+                        }
+                        onClick={() =>
+                          handleReviewEvidence(
+                            item.id,
+                            true
+                          )
+                        }
+                      >
+                        Approve Resolution
+                      </button>
+
+                      <button
+                        type="button"
+                        className="reject-btn"
+                        disabled={
+                          busyOperation ===
+                          `review:${item.id}`
+                        }
+                        onClick={() =>
+                          handleReviewEvidence(
+                            item.id,
+                            false
+                          )
+                        }
+                      >
+                        Reject Evidence
+                      </button>
+                    </div>
+                  </article>
+                );
+              })
+            )}
+          </div>
+        </section>
+      )}
+
+      {canManageReports && (
+        <section className="dashboard-panel operations-panel">
+          <div className="panel-header">
+            <div>
+              <h2>Community Feedback Review</h2>
+
+              <p>
+                Review public confirmation or dispute
+                feedback before changing the final case
+                status.
+              </p>
+            </div>
+          </div>
+
+          <div className="operation-card-list">
+            {pendingCommunityConfirmations.length ===
+            0 ? (
+              <p>
+                No community feedback is awaiting
+                review.
+              </p>
+            ) : (
+              pendingCommunityConfirmations.map(
+                (item) => {
+                  const report = item.reports;
+
+                  return (
+                    <article
+                      className="operation-card"
+                      key={item.id}
+                    >
+                      <div className="operation-card-header">
+                        <div>
+                          <h3>
+                            {report?.issue_type ||
+                              "Community feedback"}
+                          </h3>
+
+                          <p>
+                            {item.tracking_code} ·{" "}
+                            {formatDate(
+                              item.submitted_at
+                            )}
+                          </p>
+                        </div>
+
+                        <span className="request-status">
+                          {item.confirmation}
+                        </span>
+                      </div>
+
+                      <p>
+                        {item.note ||
+                          "No community note provided."}
+                      </p>
+
+                      <div className="access-request-actions">
+                        <button
+                          type="button"
+                          className="approve-btn"
+                          disabled={
+                            busyOperation ===
+                            `community:${item.id}`
+                          }
+                          onClick={() =>
+                            handleReviewCommunityConfirmation(
+                              item.id,
+                              "Approved"
+                            )
+                          }
+                        >
+                          Approve Feedback
+                        </button>
+
+                        <button
+                          type="button"
+                          className="reject-btn"
+                          disabled={
+                            busyOperation ===
+                            `community:${item.id}`
+                          }
+                          onClick={() =>
+                            handleReviewCommunityConfirmation(
+                              item.id,
+                              "Rejected"
+                            )
+                          }
+                        >
+                          Reject Feedback
+                        </button>
+                      </div>
+                    </article>
+                  );
+                }
+              )
+            )}
+          </div>
+        </section>
+      )}
+
       <section className="dashboard-panel reports-panel">
         <div className="panel-header">
           <h2>Community Reports</h2>
@@ -1665,30 +3004,9 @@ function Dashboard({
                     </td>
 
                     <td>
-                      {canManageReports ? (
-                        <select
-                          className="status-select"
-                          value={report.status}
-                          onChange={(event) =>
-                            handleStatusChange(
-                              report.id,
-                              event.target.value
-                            )
-                          }
-                        >
-                          {statuses.map(
-                            (status) => (
-                              <option
-                                key={status}
-                              >
-                                {status}
-                              </option>
-                            )
-                          )}
-                        </select>
-                      ) : (
-                        report.status
-                      )}
+                      <span className="request-status">
+                        {report.status}
+                      </span>
                     </td>
 
                     <td>
@@ -2943,6 +4261,14 @@ function App() {
   const [staffReports, setStaffReports] =
     useState([]);
 
+  const [operations, setOperations] = useState({
+    organizations: [],
+    assignments: [],
+    actions: [],
+    evidence: [],
+    communityConfirmations: [],
+  });
+
   const [
     isLoadingReports,
     setIsLoadingReports,
@@ -3012,6 +4338,113 @@ function App() {
     );
   }, []);
 
+  const loadOperations = useCallback(async () => {
+    const [
+      organizationsResult,
+      assignmentsResult,
+      actionsResult,
+      evidenceResult,
+      communityConfirmationsResult,
+    ] = await Promise.all([
+      supabase
+        .from("organizations")
+        .select(organizationColumns)
+        .eq("status", "Active")
+        .order("name", {
+          ascending: true,
+        }),
+      supabase
+        .from("report_assignments")
+        .select(assignmentColumns)
+        .order("assigned_at", {
+          ascending: false,
+        }),
+      supabase
+        .from("report_actions")
+        .select(actionColumns)
+        .order("created_at", {
+          ascending: false,
+        }),
+      supabase
+        .from("resolution_evidence")
+        .select(evidenceColumns)
+        .order("submitted_at", {
+          ascending: false,
+        }),
+      supabase
+        .from("community_confirmations")
+        .select(communityConfirmationColumns)
+        .order("submitted_at", {
+          ascending: false,
+        }),
+    ]);
+
+    const errors = [
+      organizationsResult.error,
+      assignmentsResult.error,
+      actionsResult.error,
+      evidenceResult.error,
+      communityConfirmationsResult.error,
+    ].filter(Boolean);
+
+    if (errors.length > 0) {
+      console.error(
+        "Could not load operations data:",
+        errors.map((error) => error.message)
+      );
+      setOperations({
+        organizations: [],
+        assignments: [],
+        actions: [],
+        evidence: [],
+        communityConfirmations: [],
+      });
+      return;
+    }
+
+    const evidenceWithSignedUrls =
+      await Promise.all(
+        (evidenceResult.data || []).map(
+          async (item) => {
+            if (!item.photo_path) return item;
+
+            const { data, error } =
+              await supabase.storage
+                .from("resolution-evidence")
+                .createSignedUrl(
+                  item.photo_path,
+                  60 * 10
+                );
+
+            if (error) {
+              console.error(
+                "Could not create evidence signed URL:",
+                error.message
+              );
+              return item;
+            }
+
+            return {
+              ...item,
+              signed_url: data?.signedUrl || "",
+            };
+          }
+        )
+      );
+
+    setOperations({
+      organizations:
+        organizationsResult.data || [],
+      assignments: (
+        assignmentsResult.data || []
+      ).map(fromAssignment),
+      actions: actionsResult.data || [],
+      evidence: evidenceWithSignedUrls,
+      communityConfirmations:
+        communityConfirmationsResult.data || [],
+    });
+  }, []);
+
   const loadCurrentUser = useCallback(async () => {
     const { data } =
       await supabase.auth.getUser();
@@ -3049,10 +4482,32 @@ function App() {
       ].includes(profileData.role)
     ) {
       await loadStaffReports();
+      if (
+        ["admin", "organization"].includes(
+          profileData.role
+        )
+      ) {
+        await loadOperations();
+      } else {
+        setOperations({
+          organizations: [],
+          assignments: [],
+          actions: [],
+          evidence: [],
+          communityConfirmations: [],
+        });
+      }
     } else {
       setStaffReports([]);
+      setOperations({
+        organizations: [],
+        assignments: [],
+        actions: [],
+        evidence: [],
+        communityConfirmations: [],
+      });
     }
-  }, [loadStaffReports]);
+  }, [loadOperations, loadStaffReports]);
 
   useEffect(() => {
     let isMounted = true;
@@ -3242,6 +4697,244 @@ function App() {
 
     setUser(null);
     setProfile(null);
+    setOperations({
+      organizations: [],
+      assignments: [],
+      actions: [],
+      evidence: [],
+      communityConfirmations: [],
+    });
+  }
+
+  async function refreshOperationalData() {
+    await Promise.all([
+      loadPublicReports(),
+      loadStaffReports(),
+      loadOperations(),
+    ]);
+  }
+
+  async function assignReportToOrganization(
+    reportId,
+    organizationId,
+    note
+  ) {
+    const { data, error } = await supabase.rpc(
+      "assign_report_to_organization",
+      {
+        p_report_id: reportId,
+        p_organization_id: organizationId,
+        p_note: note,
+      }
+    );
+
+    if (error || data?.success === false) {
+      return {
+        success: false,
+        error:
+          error?.message ||
+          data?.error ||
+          "Assignment failed.",
+      };
+    }
+
+    await refreshOperationalData();
+    return data;
+  }
+
+  async function acceptAssignment(assignmentId) {
+    const { data, error } = await supabase.rpc(
+      "accept_report_assignment",
+      {
+        p_assignment_id: assignmentId,
+      }
+    );
+
+    if (error || data?.success === false) {
+      return {
+        success: false,
+        error:
+          error?.message ||
+          data?.error ||
+          "Assignment acceptance failed.",
+      };
+    }
+
+    await refreshOperationalData();
+    return data;
+  }
+
+  async function addAssignmentAction(
+    assignmentId,
+    actionType,
+    note,
+    visibility
+  ) {
+    const { data, error } = await supabase.rpc(
+      "add_report_action",
+      {
+        p_assignment_id: assignmentId,
+        p_action_type: actionType,
+        p_note: note,
+        p_visibility: visibility,
+      }
+    );
+
+    if (error || data?.success === false) {
+      return {
+        success: false,
+        error:
+          error?.message ||
+          data?.error ||
+          "Action update failed.",
+      };
+    }
+
+    await refreshOperationalData();
+    return data;
+  }
+
+  async function uploadResolutionPhoto(
+    assignmentId,
+    file
+  ) {
+    if (!file?.type?.startsWith("image/")) {
+      return {
+        success: false,
+        error: "Please upload an image file.",
+      };
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      return {
+        success: false,
+        error: "Image must be under 5MB.",
+      };
+    }
+
+    const extension =
+      file.name.split(".").pop()?.toLowerCase() ||
+      "jpg";
+    const randomPart =
+      globalThis.crypto?.randomUUID?.() ||
+      `${Date.now()}-${Math.random()}`;
+    const filePath = `${profile?.organization_id || user?.id}/${assignmentId}/${randomPart}.${extension}`;
+
+    const { error: uploadError } =
+      await supabase.storage
+        .from("resolution-evidence")
+        .upload(filePath, file, {
+          cacheControl: "3600",
+          upsert: false,
+        });
+
+    if (uploadError) {
+      return {
+        success: false,
+        error: uploadError.message,
+      };
+    }
+
+    return {
+      success: true,
+      photoPath: filePath,
+    };
+  }
+
+  async function submitResolutionEvidence(
+    assignmentId,
+    file,
+    note,
+    completedAt
+  ) {
+    const uploadResult =
+      await uploadResolutionPhoto(
+        assignmentId,
+        file
+      );
+
+    if (!uploadResult.success) {
+      return uploadResult;
+    }
+
+    const { data, error } = await supabase.rpc(
+      "submit_resolution_evidence",
+      {
+        p_assignment_id: assignmentId,
+        p_photo_path: uploadResult.photoPath,
+        p_note: note,
+        p_completed_at: completedAt || null,
+      }
+    );
+
+    if (error || data?.success === false) {
+      return {
+        success: false,
+        error:
+          error?.message ||
+          data?.error ||
+          "Resolution submission failed.",
+      };
+    }
+
+    await refreshOperationalData();
+    return data;
+  }
+
+  async function reviewResolutionEvidence(
+    evidenceId,
+    approved,
+    note
+  ) {
+    const { data, error } = await supabase.rpc(
+      "review_resolution_evidence",
+      {
+        p_evidence_id: evidenceId,
+        p_approved: approved,
+        p_review_note: note,
+      }
+    );
+
+    if (error || data?.success === false) {
+      return {
+        success: false,
+        error:
+          error?.message ||
+          data?.error ||
+          "Resolution review failed.",
+      };
+    }
+
+    await refreshOperationalData();
+    return data;
+  }
+
+  async function reviewCommunityConfirmation(
+    confirmationId,
+    decision,
+    note
+  ) {
+    const { data, error } = await supabase.rpc(
+      "review_community_confirmation",
+      {
+        p_confirmation_id: confirmationId,
+        p_decision: decision,
+        p_review_note: note,
+      }
+    );
+
+    if (error || data?.success === false) {
+      return {
+        success: false,
+        error:
+          error?.message ||
+          data?.error ||
+          "Community feedback review failed.",
+      };
+    }
+
+    await refreshOperationalData();
+    return data;
   }
 
   return (
@@ -3385,6 +5078,25 @@ function App() {
                     updateReportStatus
                   }
                   profile={profile}
+                  operations={operations}
+                  onAssignReport={
+                    assignReportToOrganization
+                  }
+                  onAcceptAssignment={
+                    acceptAssignment
+                  }
+                  onAddAction={
+                    addAssignmentAction
+                  }
+                  onSubmitResolution={
+                    submitResolutionEvidence
+                  }
+                  onReviewResolution={
+                    reviewResolutionEvidence
+                  }
+                  onReviewCommunityConfirmation={
+                    reviewCommunityConfirmation
+                  }
                 />
               </ProtectedPage>
             }
