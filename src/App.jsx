@@ -36,6 +36,11 @@ import {
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { supabase } from "./lib/supabase";
+import NotificationBell from "./components/NotificationBell";
+import ReportFilters from "./components/ReportFilters";
+import ReportTimeline from "./components/ReportTimeline";
+import AdminOrganizationsPage from "./pages/AdminOrganizationsPage";
+import ReportDetailPage from "./pages/ReportDetailPage";
 import "./App.css";
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -1168,7 +1173,7 @@ function TrackReport() {
       data: updateData,
       error: updateError,
     } = await supabase
-      .from("report_updates")
+      .from("public_report_updates")
       .select(publicTimelineColumns)
       .eq("report_id", report.id)
       .order("created_at", {
@@ -1225,7 +1230,7 @@ function TrackReport() {
     );
 
     const { data: updateData } = await supabase
-      .from("report_updates")
+      .from("public_report_updates")
       .select(publicTimelineColumns)
       .eq("report_id", searchedReport.id)
       .order("created_at", {
@@ -1342,6 +1347,13 @@ function TrackReport() {
                 {searchedReport.riskScore}/100
               </p>
 
+              <Link
+                to={`/reports/${searchedReport.trackingCode}`}
+                className="btn secondary-btn compact-link"
+              >
+                Open Full Report
+              </Link>
+
               {searchedReport.photoUrl && (
                 <img
                   src={searchedReport.photoUrl}
@@ -1365,46 +1377,7 @@ function TrackReport() {
             </p>
           </div>
 
-          <div className="report-timeline">
-            {updates.length === 0 ? (
-              <p>
-                No timeline updates have been recorded.
-              </p>
-            ) : (
-              updates.map((update, index) => (
-                <div
-                  className="timeline-item"
-                  key={update.id}
-                >
-                  <div className="timeline-marker">
-                    <span>{index + 1}</span>
-                  </div>
-
-                  <div className="timeline-content">
-                    <div className="timeline-header">
-                      <h3>{update.status}</h3>
-
-                      <span>
-                        {formatDate(
-                          update.created_at
-                        )}
-                      </span>
-                    </div>
-
-                    {update.note && (
-                      <p>{update.note}</p>
-                    )}
-
-                    <small>
-                      Updated by{" "}
-                      {update.updated_by_name ||
-                        "Make Kenya Clean"}
-                    </small>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
+          <ReportTimeline updates={updates} />
         </section>
       )}
 
@@ -1639,18 +1612,12 @@ function OrganizationDashboard({
   profile,
   operations,
   onAcceptAssignment,
-  onAddAction,
-  onSubmitResolution,
 }) {
   const assignments = operations?.assignments || [];
   const actions = operations?.actions || [];
   const evidence = operations?.evidence || [];
   const [busyOperation, setBusyOperation] =
     useState("");
-  const [actionForms, setActionForms] =
-    useState({});
-  const [resolutionForms, setResolutionForms] =
-    useState({});
 
   const newlyAssigned = assignments.filter(
     (assignment) => assignment.status === "Assigned"
@@ -1686,92 +1653,8 @@ function OrganizationDashboard({
     }
   }
 
-  async function handleAddAction(assignmentId) {
-    const form = actionForms[assignmentId] || {};
-
-    if (!form.note?.trim()) {
-      alert("Add a short action note first.");
-      return;
-    }
-
-    setBusyOperation(`action:${assignmentId}`);
-
-    const result = await onAddAction(
-      assignmentId,
-      form.actionType || "Other",
-      form.note.trim(),
-      form.visibility || "Public"
-    );
-
-    setBusyOperation("");
-
-    if (!result?.success) {
-      alert(
-        result?.error ||
-          "The action update could not be saved."
-      );
-      return;
-    }
-
-    setActionForms((current) => ({
-      ...current,
-      [assignmentId]: {
-        actionType: "Inspection",
-        visibility: "Public",
-        note: "",
-      },
-    }));
-  }
-
-  async function handleSubmitResolution(
-    assignmentId
-  ) {
-    const form = resolutionForms[assignmentId] || {};
-
-    if (!form.file) {
-      alert("Upload resolution photo evidence first.");
-      return;
-    }
-
-    setBusyOperation(`resolution:${assignmentId}`);
-
-    const result = await onSubmitResolution(
-      assignmentId,
-      form.file,
-      form.note || "",
-      form.completedAt || ""
-    );
-
-    setBusyOperation("");
-
-    if (!result?.success) {
-      alert(
-        result?.error ||
-          "Resolution evidence could not be submitted."
-      );
-      return;
-    }
-
-    setResolutionForms((current) => ({
-      ...current,
-      [assignmentId]: {
-        note: "",
-        completedAt: "",
-        file: null,
-      },
-    }));
-  }
-
   function renderAssignmentCard(assignment, mode) {
     const report = assignment.report;
-    const actionForm =
-      actionForms[assignment.id] || {
-        actionType: "Inspection",
-        visibility: "Public",
-        note: "",
-      };
-    const resolutionForm =
-      resolutionForms[assignment.id] || {};
     const assignmentActions = actions.filter(
       (action) =>
         action.assignment_id === assignment.id
@@ -1827,6 +1710,15 @@ function OrganizationDashboard({
           )}
         </div>
 
+        {report?.trackingCode && (
+          <Link
+            to={`/reports/${report.trackingCode}`}
+            className="btn secondary-btn compact-link"
+          >
+            Open Report Details
+          </Link>
+        )}
+
         {mode === "new" && (
           <button
             type="button"
@@ -1847,152 +1739,10 @@ function OrganizationDashboard({
         )}
 
         {mode === "active" && (
-          <div className="organization-workflow">
-            <div className="assignment-controls">
-              <select
-                value={actionForm.actionType}
-                onChange={(event) =>
-                  setActionForms((current) => ({
-                    ...current,
-                    [assignment.id]: {
-                      ...actionForm,
-                      actionType:
-                        event.target.value,
-                    },
-                  }))
-                }
-              >
-                {[
-                  "Inspection",
-                  "Team Dispatched",
-                  "Work Started",
-                  "Repair",
-                  "Cleaning",
-                  "Drainage Clearing",
-                  "Water Testing",
-                  "Follow-up",
-                  "Other",
-                ].map((type) => (
-                  <option key={type}>{type}</option>
-                ))}
-              </select>
-
-              <select
-                value={actionForm.visibility}
-                onChange={(event) =>
-                  setActionForms((current) => ({
-                    ...current,
-                    [assignment.id]: {
-                      ...actionForm,
-                      visibility:
-                        event.target.value,
-                    },
-                  }))
-                }
-              >
-                <option>Public</option>
-                <option>Staff Only</option>
-              </select>
-
-              <input
-                type="text"
-                placeholder="Action note"
-                value={actionForm.note}
-                onChange={(event) =>
-                  setActionForms((current) => ({
-                    ...current,
-                    [assignment.id]: {
-                      ...actionForm,
-                      note: event.target.value,
-                    },
-                  }))
-                }
-              />
-
-              <button
-                type="button"
-                className="approve-btn"
-                disabled={
-                  busyOperation ===
-                  `action:${assignment.id}`
-                }
-                onClick={() =>
-                  handleAddAction(assignment.id)
-                }
-              >
-                Add Action
-              </button>
-            </div>
-
-            <div className="assignment-controls">
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(event) =>
-                  setResolutionForms((current) => ({
-                    ...current,
-                    [assignment.id]: {
-                      ...resolutionForm,
-                      file:
-                        event.target.files?.[0] ||
-                        null,
-                    },
-                  }))
-                }
-              />
-
-              <input
-                type="date"
-                value={
-                  resolutionForm.completedAt || ""
-                }
-                onChange={(event) =>
-                  setResolutionForms((current) => ({
-                    ...current,
-                    [assignment.id]: {
-                      ...resolutionForm,
-                      completedAt:
-                        event.target.value,
-                    },
-                  }))
-                }
-              />
-
-              <input
-                type="text"
-                placeholder="Resolution note"
-                value={resolutionForm.note || ""}
-                onChange={(event) =>
-                  setResolutionForms((current) => ({
-                    ...current,
-                    [assignment.id]: {
-                      ...resolutionForm,
-                      note: event.target.value,
-                    },
-                  }))
-                }
-              />
-
-              <button
-                type="button"
-                className="approve-btn"
-                disabled={
-                  busyOperation ===
-                  `resolution:${assignment.id}`
-                }
-                onClick={() =>
-                  handleSubmitResolution(
-                    assignment.id
-                  )
-                }
-              >
-                {busyOperation ===
-                `resolution:${assignment.id}`
-                  ? "Submitting..."
-                  : "Request Resolution"}
-              </button>
-            </div>
-          </div>
+          <p>
+            Add action updates and submit resolution
+            evidence from the report detail page.
+          </p>
         )}
 
         {assignmentActions.length > 0 && (
@@ -2162,8 +1912,6 @@ function Dashboard({
   operations,
   onAssignReport,
   onAcceptAssignment,
-  onAddAction,
-  onSubmitResolution,
   onReviewResolution,
   onReviewCommunityConfirmation,
 }) {
@@ -2210,8 +1958,22 @@ function Dashboard({
   const [busyOperation, setBusyOperation] =
     useState("");
 
+  const [reportFilters, setReportFilters] =
+    useState({
+      trackingCode: "",
+      issueType: "Any",
+      status: "Any",
+      organizationId: "Any",
+      riskLabel: "Any",
+      location: "",
+    });
+
   const organizations =
     operations?.organizations || [];
+  const activeOrganizations = organizations.filter(
+    (organization) =>
+      organization.status === "Active"
+  );
   const assignments =
     operations?.assignments || [];
   const evidence =
@@ -2232,7 +1994,60 @@ function Dashboard({
     )
   );
 
-  const reportsForFilter = reports.filter((report) => {
+  const operationsFilteredReports = reports.filter((report) => {
+    const assignment =
+      getActiveAssignment(assignments, report.id) ||
+      assignments.find(
+        (item) => item.report_id === report.id
+      );
+    const trackingMatch = report.trackingCode
+      .toLowerCase()
+      .includes(
+        reportFilters.trackingCode.toLowerCase()
+      );
+    const locationMatch = [
+      report.locationName,
+      report.area,
+    ]
+      .join(" ")
+      .toLowerCase()
+      .includes(reportFilters.location.toLowerCase());
+
+    if (!trackingMatch || !locationMatch) return false;
+
+    if (
+      reportFilters.issueType !== "Any" &&
+      report.issueType !== reportFilters.issueType
+    ) {
+      return false;
+    }
+
+    if (
+      reportFilters.status !== "Any" &&
+      report.status !== reportFilters.status
+    ) {
+      return false;
+    }
+
+    if (
+      reportFilters.riskLabel !== "Any" &&
+      report.riskLabel !== reportFilters.riskLabel
+    ) {
+      return false;
+    }
+
+    if (
+      reportFilters.organizationId !== "Any" &&
+      assignment?.organization_id !==
+        reportFilters.organizationId
+    ) {
+      return false;
+    }
+
+    return true;
+  });
+
+  const reportsForFilter = operationsFilteredReports.filter((report) => {
     if (activeOperationsFilter === "Unassigned") {
       return (
         report.status === "Verified" &&
@@ -2282,6 +2097,59 @@ function Dashboard({
       (item) => item.review_status === "Pending"
     );
 
+  const operationsSummary = [
+    [
+      "Needs Verification",
+      reports.filter(
+        (report) => report.status === "Reported"
+      ).length,
+    ],
+    [
+      "Verified / Unassigned",
+      reports.filter(
+        (report) =>
+          report.status === "Verified" &&
+          !assignedReportIds.has(report.id)
+      ).length,
+    ],
+    [
+      "Assigned",
+      reports.filter(
+        (report) => report.status === "Assigned"
+      ).length,
+    ],
+    [
+      "In Progress",
+      reports.filter(
+        (report) => report.status === "In Progress"
+      ).length,
+    ],
+    [
+      "Resolution Submitted",
+      reports.filter(
+        (report) =>
+          report.status === "Resolution Submitted"
+      ).length,
+    ],
+    [
+      "Resolved",
+      reports.filter(
+        (report) => report.status === "Resolved"
+      ).length,
+    ],
+    [
+      "Pending Community Review",
+      pendingCommunityConfirmations.length,
+    ],
+    [
+      "Community Confirmed",
+      reports.filter(
+        (report) =>
+          report.status === "Community Confirmed"
+      ).length,
+    ],
+  ];
+
   if (profile?.role === "organization") {
     return (
       <OrganizationDashboard
@@ -2289,10 +2157,6 @@ function Dashboard({
         operations={operations}
         onAcceptAssignment={
           onAcceptAssignment
-        }
-        onAddAction={onAddAction}
-        onSubmitResolution={
-          onSubmitResolution
         }
       />
     );
@@ -2535,6 +2399,40 @@ function Dashboard({
             </div>
           </div>
 
+          <div className="operations-summary-grid">
+            {operationsSummary.map(([label, count]) => (
+              <button
+                type="button"
+                className="operations-summary-card"
+                key={label}
+                onClick={() =>
+                  setReportFilters((current) => ({
+                    ...current,
+                    status:
+                      label ===
+                      "Verified / Unassigned"
+                        ? "Verified"
+                        : [
+                            "Needs Verification",
+                            "Pending Community Review",
+                          ].includes(label)
+                        ? "Any"
+                        : label,
+                  }))
+                }
+              >
+                <span>{label}</span>
+                <strong>{count}</strong>
+              </button>
+            ))}
+          </div>
+
+          <ReportFilters
+            filters={reportFilters}
+            organizations={activeOrganizations}
+            onChange={setReportFilters}
+          />
+
           <div className="request-tabs">
             {assignmentStatuses.map((status) => (
               <button
@@ -2661,7 +2559,7 @@ function Dashboard({
                               Select organization
                             </option>
 
-                            {organizations.map(
+                            {activeOrganizations.map(
                               (organization) => (
                                 <option
                                   key={
@@ -2716,6 +2614,13 @@ function Dashboard({
                           </button>
                         </div>
                       )}
+
+                    <Link
+                      to={`/reports/${report.trackingCode}`}
+                      className="btn secondary-btn compact-link"
+                    >
+                      Open Report
+                    </Link>
                   </article>
                 );
               })
@@ -2969,7 +2874,11 @@ function Dashboard({
                 reports.map((report) => (
                   <tr key={report.id}>
                     <td>
-                      {report.trackingCode}
+                      <Link
+                        to={`/reports/${report.trackingCode}`}
+                      >
+                        {report.trackingCode}
+                      </Link>
                     </td>
 
                     <td>
@@ -4349,7 +4258,6 @@ function App() {
       supabase
         .from("organizations")
         .select(organizationColumns)
-        .eq("status", "Active")
         .order("name", {
           ascending: true,
         }),
@@ -4976,10 +4884,17 @@ function App() {
           </Link>
 
           {profile?.role === "admin" && (
-            <Link to="/admin/access-requests">
-              Access Requests
-            </Link>
+            <>
+              <Link to="/admin/organizations">
+                Organizations
+              </Link>
+              <Link to="/admin/access-requests">
+                Access Requests
+              </Link>
+            </>
           )}
+
+          <NotificationBell user={user} />
 
           {user ? (
             <button
@@ -5030,6 +4945,32 @@ function App() {
           <Route
             path="/track"
             element={<TrackReport />}
+          />
+
+          <Route
+            path="/reports/:trackingCode"
+            element={
+              <ReportDetailPage
+                user={user}
+                profile={profile}
+                operations={operations}
+                onAcceptAssignment={
+                  acceptAssignment
+                }
+                onAddAction={
+                  addAssignmentAction
+                }
+                onSubmitResolution={
+                  submitResolutionEvidence
+                }
+                onReviewResolution={
+                  reviewResolutionEvidence
+                }
+                onReviewCommunityConfirmation={
+                  reviewCommunityConfirmation
+                }
+              />
+            }
           />
 
           <Route
@@ -5085,12 +5026,6 @@ function App() {
                   onAcceptAssignment={
                     acceptAssignment
                   }
-                  onAddAction={
-                    addAssignmentAction
-                  }
-                  onSubmitResolution={
-                    submitResolutionEvidence
-                  }
                   onReviewResolution={
                     reviewResolutionEvidence
                   }
@@ -5133,6 +5068,22 @@ function App() {
                 allowedRoles={["admin"]}
               >
                 <AdminAccessRequestsPage />
+              </ProtectedPage>
+            }
+          />
+
+          <Route
+            path="/admin/organizations"
+            element={
+              <ProtectedPage
+                user={user}
+                profile={profile}
+                allowedRoles={["admin"]}
+              >
+                <AdminOrganizationsPage
+                  operations={operations}
+                  onRefresh={refreshOperationalData}
+                />
               </ProtectedPage>
             }
           />
