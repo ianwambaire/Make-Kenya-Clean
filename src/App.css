@@ -2926,3 +2926,220 @@ textarea:focus-visible {
     font-size: 17px;
   }
 }
+/* Case header — the one deliberately "special" element on this page */
+.case-header {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--teal);
+  border-radius: var(--r-lg);
+  padding: var(--sp-5);
+  margin-bottom: var(--sp-4);
+}
+
+.case-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--sp-2);
+}
+
+.case-tracking-code {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  color: var(--ink);
+  margin-bottom: var(--sp-4);
+  letter-spacing: 0;
+}
+
+.case-what-where {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: var(--sp-5);
+  align-items: start;
+}
+
+.case-what h2 {
+  font-size: 24px;
+  margin-bottom: 6px;
+}
+
+.case-facts {
+  display: grid;
+  gap: var(--sp-3);
+}
+
+.case-fact {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.case-fact svg {
+  color: var(--teal);
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.case-fact > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.case-fact span {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.case-fact strong {
+  font-size: 15px;
+  color: var(--ink);
+}
+
+.case-fact small {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.case-fact .risk-pill {
+  margin-bottom: 0;
+  width: fit-content;
+}
+
+.case-photo {
+  width: 100%;
+  max-height: 320px;
+  object-fit: cover;
+  border-radius: var(--r-md);
+  margin-top: var(--sp-4);
+  border: 1px solid var(--line);
+}
+
+/* Status badge — reuses tint tokens, distinct from risk pills */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  border-radius: var(--r-pill);
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.status-badge.tone-neutral {
+  background: var(--paper);
+  color: var(--muted);
+  border: 1px solid var(--line-strong);
+}
+
+.status-badge.tone-verified {
+  background: var(--teal-tint);
+  color: var(--teal-dark);
+}
+
+.status-badge.tone-progress {
+  background: var(--warn-tint);
+  color: var(--warn);
+}
+
+.status-badge.tone-done {
+  background: var(--good-tint);
+  color: var(--good);
+}
+
+/* Responder panel — visually distinct from generic dashboard-panel */
+.responder-panel {
+  display: flex;
+  gap: var(--sp-3);
+  align-items: flex-start;
+  background: var(--teal-tint);
+  border: 1px solid #bfe0da;
+  border-radius: var(--r-md);
+  padding: var(--sp-4);
+  margin-bottom: var(--sp-4);
+}
+
+.responder-panel > svg {
+  color: var(--teal-dark);
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+
+.responder-panel-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.responder-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  margin-bottom: 6px;
+}
+
+.responder-panel-header span {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--teal-dark);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.responder-panel-header h3 {
+  font-size: 17px;
+  margin-bottom: 0;
+}
+
+.responder-panel p {
+  font-size: 14px;
+  color: var(--body);
+  margin-bottom: 4px;
+}
+
+.responder-latest-action {
+  color: var(--ink);
+}
+
+.next-action-panel {
+  border-left: 3px solid var(--clay);
+}
+
+.workflow-step {
+  padding-bottom: var(--sp-4);
+  margin-bottom: var(--sp-4);
+  border-bottom: 1px solid var(--line);
+}
+
+.workflow-step:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.workflow-step h3 {
+  font-size: 15px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  margin-bottom: var(--sp-3);
+}
+
+@media (max-width: 900px) {
+  .case-what-where {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .case-header {
+    padding: var(--sp-4);
+  }
+
+  .responder-panel-header {
+    flex-direction: column;
+  }
+}
