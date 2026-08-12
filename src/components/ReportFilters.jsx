@@ -1,4 +1,5 @@
 import { X } from "lucide-react";
+import { REPORT_FILTER_CATEGORIES } from "../constants/reportCategories";
 
 const anyValue = "Any";
 
@@ -62,13 +63,11 @@ export default function ReportFilters({
           }
         >
           <option>{anyValue}</option>
-          <option>Sewage Leak</option>
-          <option>Blocked Drainage</option>
-          <option>Dirty Water</option>
-          <option>Burst Pipe</option>
-          <option>Illegal Dumping</option>
-          <option>Flooding</option>
-          <option>Broken Public Toilet</option>
+          {REPORT_FILTER_CATEGORIES.map((category) => (
+            <option key={category}>
+              {category}
+            </option>
+          ))}
         </select>
 
         <select

@@ -35,6 +35,11 @@ import PhotoUploader from "./components/PhotoUploader";
 import ReportFilters from "./components/ReportFilters";
 import ReportTimeline from "./components/ReportTimeline";
 import {
+  DEFAULT_REPORT_CATEGORY,
+  REPORT_CATEGORIES,
+  REPORT_CATEGORY_RISK_SCORES,
+} from "./constants/reportCategories";
+import {
   extensionForImage,
   prepareImageForUpload,
 } from "./utils/imageCompression";
@@ -64,7 +69,7 @@ const assignmentStatuses = [
 ];
 
 const emptyReportForm = {
-  issueType: "Sewage Leak",
+  issueType: DEFAULT_REPORT_CATEGORY,
   locationName: "",
   description: "",
   urgency: "Medium",
@@ -288,16 +293,6 @@ function getActiveAssignment(assignments, reportId) {
 }
 
 function calculateRiskScore(issueType, urgency, nearSensitiveArea) {
-  const issueScores = {
-    "Sewage Leak": 35,
-    "Blocked Drainage": 25,
-    "Dirty Water": 30,
-    "Burst Pipe": 25,
-    "Illegal Dumping": 20,
-    Flooding: 35,
-    "Broken Public Toilet": 25,
-  };
-
   const urgencyScores = {
     Low: 5,
     Medium: 15,
@@ -310,7 +305,7 @@ function calculateRiskScore(issueType, urgency, nearSensitiveArea) {
 
   return Math.min(
     30 +
-      (issueScores[issueType] || 10) +
+      (REPORT_CATEGORY_RISK_SCORES[issueType] || 10) +
       (urgencyScores[urgency] || 5) +
       sensitiveAreaScore,
     100
@@ -864,13 +859,11 @@ function ReportIssue({ addReport }) {
               value={formData.issueType}
               onChange={handleChange}
             >
-              <option>Sewage Leak</option>
-              <option>Blocked Drainage</option>
-              <option>Dirty Water</option>
-              <option>Burst Pipe</option>
-              <option>Illegal Dumping</option>
-              <option>Flooding</option>
-              <option>Broken Public Toilet</option>
+              {REPORT_CATEGORIES.map((category) => (
+                <option key={category}>
+                  {category}
+                </option>
+              ))}
             </select>
           </div>
 
