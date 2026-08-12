@@ -43,6 +43,7 @@ import {
   extensionForImage,
   prepareImageForUpload,
 } from "./utils/imageCompression";
+import { getReportSuggestion } from "./utils/reportSuggestions";
 import "./App.css";
 
 const AdminOrganizationsPage = lazy(() =>
@@ -646,6 +647,9 @@ function ReportIssue({ addReport }) {
   );
 
   const riskLabel = getRiskLabel(riskScore);
+  const smartSuggestion = getReportSuggestion(
+    formData.description
+  );
 
   function handleChange(event) {
     const {
@@ -690,6 +694,20 @@ function ReportIssue({ addReport }) {
         );
       }
     );
+  }
+
+  function handleApplySuggestion() {
+    if (!smartSuggestion) return;
+
+    setFormData((current) => ({
+      ...current,
+      issueType:
+        smartSuggestion.suggestedIssueType ||
+        current.issueType,
+      urgency:
+        smartSuggestion.suggestedUrgency ||
+        current.urgency,
+    }));
   }
 
   async function uploadReportPhoto(reportId) {
@@ -1055,6 +1073,52 @@ function ReportIssue({ addReport }) {
               required
             />
           </div>
+
+          {smartSuggestion && (
+            <div className="smart-suggestion-panel">
+              <span className="section-tag">
+                Smart suggestion prototype
+              </span>
+
+              <h3>Rule-based AI-style assistant</h3>
+
+              <p>
+                Suggested classification:{" "}
+                <strong>
+                  {smartSuggestion.suggestedIssueType}
+                </strong>{" "}
+                · {smartSuggestion.suggestedUrgency} urgency ·{" "}
+                {smartSuggestion.suggestedRiskLevel} risk
+              </p>
+
+              <ul>
+                {smartSuggestion.reasons.map((reason) => (
+                  <li key={reason}>{reason}</li>
+                ))}
+              </ul>
+
+              {smartSuggestion.matchedKeywords.length > 0 && (
+                <small>
+                  Matched keywords:{" "}
+                  {smartSuggestion.matchedKeywords.join(", ")}
+                </small>
+              )}
+
+              <p className="form-hint">
+                Future versions can use trained AI models once
+                enough validated reports are collected. Your
+                text is not sent to external services.
+              </p>
+
+              <button
+                type="button"
+                className="btn secondary-btn"
+                onClick={handleApplySuggestion}
+              >
+                Apply suggestion
+              </button>
+            </div>
+          )}
 
           <div className="form-group checkbox-group consent-box">
             <label className="checkbox-label">

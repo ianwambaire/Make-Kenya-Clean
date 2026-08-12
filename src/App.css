@@ -509,6 +509,46 @@ textarea:focus-visible {
   font-size: 14px;
 }
 
+.smart-suggestion-panel {
+  margin-bottom: var(--sp-4);
+  padding: var(--sp-4);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--teal);
+  border-radius: var(--r-md);
+  background: var(--teal-tint);
+}
+
+.smart-suggestion-panel h3 {
+  margin-bottom: var(--sp-2);
+  font-size: 18px;
+}
+
+.smart-suggestion-panel p,
+.smart-suggestion-panel li,
+.smart-suggestion-panel small {
+  color: var(--body);
+  font-size: 14px;
+}
+
+.smart-suggestion-panel ul {
+  margin: var(--sp-3) 0;
+  padding-left: 18px;
+}
+
+.smart-suggestion-panel small {
+  display: block;
+  margin-bottom: var(--sp-3);
+}
+
+.smart-suggestion-panel .btn {
+  min-height: 40px;
+}
+
+.detail-suggestion {
+  margin-top: var(--sp-4);
+  margin-bottom: 0;
+}
+
 .tracking-code-box {
   display: flex;
   flex-direction: column;

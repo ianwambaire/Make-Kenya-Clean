@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import PhotoUploader from "../components/PhotoUploader";
 import ReportTimeline from "../components/ReportTimeline";
+import { getReportSuggestion } from "../utils/reportSuggestions";
 import {
   formatDate,
   loadPublicReportDetail,
@@ -88,6 +89,9 @@ export default function ReportDetailPage({
     ["admin", "champion", "organization"].includes(
       profile.role
     );
+  const smartSuggestion = report?.description
+    ? getReportSuggestion(report.description)
+    : null;
 
   useEffect(() => {
     let isMounted = true;
@@ -480,6 +484,31 @@ export default function ReportDetailPage({
             alt="Report evidence"
             className="case-photo"
           />
+        )}
+
+        {smartSuggestion && (
+          <section className="smart-suggestion-panel detail-suggestion">
+            <span className="section-tag">
+              Smart classification
+            </span>
+
+            <h3>AI-assisted prototype suggestion</h3>
+
+            <p>
+              Rule-based classification suggests{" "}
+              <strong>
+                {smartSuggestion.suggestedIssueType}
+              </strong>{" "}
+              with {smartSuggestion.suggestedUrgency} urgency and{" "}
+              {smartSuggestion.suggestedRiskLevel} risk.
+            </p>
+
+            <p className="form-hint">
+              This is derived from the public report
+              description only. No contact details or private
+              evidence are used.
+            </p>
+          </section>
         )}
       </section>
 
