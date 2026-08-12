@@ -2337,6 +2337,15 @@ textarea:focus-visible {
     grid-template-columns: 1fr;
   }
 
+  .map-filter-controls,
+  .map-intelligence-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .queue-item-actions {
+    justify-items: start;
+  }
+
   .reports-table-wrapper {
     margin-left: -16px;
     margin-right: -16px;
@@ -2850,6 +2859,33 @@ textarea:focus-visible {
   flex-shrink: 0;
 }
 
+.map-filter-controls {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(130px, 1fr)) auto;
+  gap: var(--sp-3);
+  width: 100%;
+  align-items: end;
+}
+
+.map-filter-controls label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.map-filter-controls select,
+.map-filter-controls input {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  padding: 8px 10px;
+  color: var(--body);
+  background: var(--surface);
+}
+
 .map-filter-chips {
   display: flex;
   gap: 6px;
@@ -2876,6 +2912,81 @@ textarea:focus-visible {
   background: var(--teal);
   border-color: var(--teal);
   color: #ffffff;
+}
+
+.map-intelligence-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1.5fr);
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-5);
+}
+
+.map-intelligence-panel > div {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: var(--sp-4);
+  box-shadow: var(--shadow);
+}
+
+.map-intelligence-panel span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+
+.map-intelligence-panel strong {
+  color: var(--ink);
+  font-size: 15px;
+}
+
+.hotspot-area-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.hotspot-area-list span {
+  width: fit-content;
+  margin: 0;
+  padding: 5px 9px;
+  border-radius: var(--r-pill);
+  background: var(--teal-soft);
+  color: var(--teal-dark);
+  font-size: 12px;
+  text-transform: none;
+}
+
+.map-popup-link {
+  display: inline-flex;
+  margin-top: 6px;
+  color: var(--teal);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.map-popup-link:hover {
+  text-decoration: underline;
+}
+
+.queue-item-actions {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+}
+
+.queue-item-actions a {
+  color: var(--teal);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.queue-item-actions a:hover {
+  text-decoration: underline;
 }
 
 .map-empty-state {
