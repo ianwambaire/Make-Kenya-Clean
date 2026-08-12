@@ -292,22 +292,29 @@ function getActiveAssignment(assignments, reportId) {
   );
 }
 
-function calculateRiskScore(issueType, urgency, nearSensitiveArea) {
+function calculateRiskScore(
+  issueType,
+  urgency,
+  nearSensitiveArea,
+  options = {}
+) {
   const urgencyScores = {
     Low: 5,
-    Medium: 15,
-    High: 25,
-    Critical: 35,
+    Medium: 12,
+    High: 22,
+    Critical: 32,
   };
 
   const sensitiveAreaScore =
-    nearSensitiveArea === "Yes" ? 20 : 0;
+    nearSensitiveArea === "Yes" ? 13 : 0;
+  const evidenceScore = options.hasPhotoEvidence ? 5 : 0;
 
   return Math.min(
-    30 +
+    18 +
       (REPORT_CATEGORY_RISK_SCORES[issueType] || 10) +
       (urgencyScores[urgency] || 5) +
-      sensitiveAreaScore,
+      sensitiveAreaScore +
+      evidenceScore,
     100
   );
 }
@@ -628,7 +635,8 @@ function ReportIssue({ addReport }) {
   const riskScore = calculateRiskScore(
     formData.issueType,
     formData.urgency,
-    formData.nearSensitiveArea
+    formData.nearSensitiveArea,
+    { hasPhotoEvidence: Boolean(photoFile) }
   );
 
   const riskLabel = getRiskLabel(riskScore);
@@ -1085,8 +1093,9 @@ function ReportIssue({ addReport }) {
           </p>
 
           <p>
-            This score helps response teams prioritize
-            urgent water and sanitation risks.
+            This urban utility risk score helps response
+            teams prioritize urgent water, sanitation,
+            drainage, and public utility issues.
           </p>
 
           {submittedReport && (

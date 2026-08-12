@@ -156,7 +156,7 @@ export default function PublicMapPage({ reports }) {
                       </p>
 
                       <p>
-                        <strong>Risk:</strong>{" "}
+                        <strong>Maji Risk Index:</strong>{" "}
                         {report.riskLabel} ·{" "}
                         {report.riskScore}/100
                       </p>
@@ -186,8 +186,8 @@ export default function PublicMapPage({ reports }) {
 
           <p>
             {riskFilter === "All"
-              ? "Reports are ranked by risk score."
-              : `Showing ${riskFilter.toLowerCase()} risk reports, ranked by risk score.`}
+              ? "Reports are ranked by urban utility risk score."
+              : `Showing ${riskFilter.toLowerCase()} risk reports, ranked by urban utility risk score.`}
           </p>
 
           {sortedQueue.length === 0 ? (

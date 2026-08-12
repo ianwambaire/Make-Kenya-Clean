@@ -449,7 +449,7 @@ export default function ReportDetailPage({
               <AlertTriangle size={16} />
 
               <div>
-                <span>Severity</span>
+                <span>Maji Risk Index</span>
 
                 <strong
                   className={`risk-pill ${report.riskLabel.toLowerCase()}`}
