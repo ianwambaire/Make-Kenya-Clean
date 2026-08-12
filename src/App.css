@@ -900,15 +900,62 @@ textarea:focus-visible {
   text-decoration: underline;
 }
 
+/* ==========================================================================
+   Simulated sensor alerts
+   ========================================================================== */
+.sensor-page .section-heading p {
+  max-width: 820px;
+}
+
+.sensor-stats-grid {
+  grid-template-columns: repeat(5, 1fr);
+}
+
+.sensor-stat-card h2 {
+  font-size: 24px;
+}
+
+.sensor-explainer {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-5);
+  align-items: center;
+  margin-bottom: var(--sp-5);
+}
+
+.sensor-explainer h2 {
+  margin-bottom: 6px;
+}
+
+.sensor-explainer p {
+  max-width: 760px;
+}
+
+.sensor-alerts-table td {
+  vertical-align: top;
+}
+
+.sensor-alerts-table small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+}
+
 @media (max-width: 1100px) {
   .map-layout {
     grid-template-columns: 1fr;
   }
 
   .intelligence-stats-grid,
+  .sensor-stats-grid,
   .intelligence-chart-grid,
   .intelligence-section-grid {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .sensor-explainer {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .leaflet-map {
@@ -922,6 +969,7 @@ textarea:focus-visible {
   }
 
   .intelligence-stats-grid,
+  .sensor-stats-grid,
   .intelligence-chart-grid,
   .intelligence-section-grid,
   .intelligence-facts {

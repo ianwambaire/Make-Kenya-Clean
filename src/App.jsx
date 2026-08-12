@@ -51,6 +51,9 @@ const AdminOrganizationsPage = lazy(() =>
 const AdminIntelligencePage = lazy(() =>
   import("./pages/AdminIntelligencePage")
 );
+const AdminSensorsPage = lazy(() =>
+  import("./pages/AdminSensorsPage")
+);
 const ReportDetailPage = lazy(() =>
   import("./pages/ReportDetailPage")
 );
@@ -4826,6 +4829,9 @@ function App() {
               <NavLink to="/admin/intelligence">
                 Intelligence
               </NavLink>
+              <NavLink to="/admin/sensors">
+                Sensors
+              </NavLink>
               <NavLink to="/admin/access-requests">
                 Access Requests
               </NavLink>
@@ -5058,6 +5064,19 @@ function App() {
                   reports={staffReports}
                   operations={operations}
                 />
+              </ProtectedPage>
+            }
+          />
+
+          <Route
+            path="/admin/sensors"
+            element={
+              <ProtectedPage
+                user={user}
+                profile={profile}
+                allowedRoles={["admin"]}
+              >
+                <AdminSensorsPage />
               </ProtectedPage>
             }
           />
