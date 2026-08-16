@@ -19,6 +19,10 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import {
+  createCsv,
+  downloadCsv,
+} from "../utils/csvExport";
 
 const unresolvedStatuses = new Set([
   "Reported",
@@ -154,6 +158,87 @@ function getOrganizationPerformance(assignments) {
     .slice(0, 8);
 }
 
+function getLatestByReportId(items, getTimestamp) {
+  const latestItems = new Map();
+
+  items.forEach((item) => {
+    if (!item.report_id) return;
+
+    const existing = latestItems.get(item.report_id);
+    const itemTime = new Date(
+      getTimestamp(item) || 0
+    ).getTime();
+    const existingTime = new Date(
+      existing ? getTimestamp(existing) || 0 : 0
+    ).getTime();
+
+    if (!existing || itemTime >= existingTime) {
+      latestItems.set(item.report_id, item);
+    }
+  });
+
+  return latestItems;
+}
+
+function getCsvDateStamp() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function formatCommunityStatus(confirmation) {
+  if (!confirmation) return "";
+
+  return [
+    confirmation.confirmation,
+    confirmation.review_status,
+  ]
+    .filter(Boolean)
+    .join(" / ");
+}
+
+const exportColumns = [
+  {
+    header: "tracking_code",
+    accessor: "tracking_code",
+  },
+  {
+    header: "issue_type",
+    accessor: "issue_type",
+  },
+  { header: "status", accessor: "status" },
+  {
+    header: "location_name",
+    accessor: "location_name",
+  },
+  { header: "area", accessor: "area" },
+  { header: "latitude", accessor: "latitude" },
+  { header: "longitude", accessor: "longitude" },
+  { header: "urgency", accessor: "urgency" },
+  {
+    header: "near_sensitive_area",
+    accessor: "near_sensitive_area",
+  },
+  { header: "risk_score", accessor: "risk_score" },
+  { header: "risk_label", accessor: "risk_label" },
+  { header: "created_at", accessor: "created_at" },
+  { header: "updated_at", accessor: "updated_at" },
+  {
+    header: "assigned_organization_name",
+    accessor: "assigned_organization_name",
+  },
+  {
+    header: "assignment_status",
+    accessor: "assignment_status",
+  },
+  {
+    header: "resolution_status",
+    accessor: "resolution_status",
+  },
+  {
+    header: "community_status",
+    accessor: "community_status",
+  },
+];
+
 function SummaryCard({ icon, label, value }) {
   return (
     <div className="stat-card intelligence-card">
@@ -191,6 +276,28 @@ export default function AdminIntelligencePage({
   const evidence = operations?.evidence || [];
   const communityConfirmations =
     operations?.communityConfirmations || [];
+  const latestAssignmentByReportId =
+    getLatestByReportId(
+      assignments,
+      (assignment) =>
+        assignment.updated_at ||
+        assignment.accepted_at ||
+        assignment.assigned_at ||
+        assignment.created_at
+    );
+  const latestEvidenceByReportId =
+    getLatestByReportId(
+      evidence,
+      (item) =>
+        item.reviewed_at ||
+        item.submitted_at ||
+        item.completed_at
+    );
+  const latestCommunityByReportId =
+    getLatestByReportId(
+      communityConfirmations,
+      (item) => item.reviewed_at || item.submitted_at
+    );
 
   const openReports = reports.filter((report) =>
     unresolvedStatuses.has(report.status)
@@ -306,6 +413,48 @@ export default function AdminIntelligencePage({
     ],
   ];
 
+  function handleExportCsv() {
+    const exportRows = reports.map((report) => {
+      const assignment =
+        latestAssignmentByReportId.get(report.id);
+      const latestEvidence =
+        latestEvidenceByReportId.get(report.id);
+      const latestCommunity =
+        latestCommunityByReportId.get(report.id);
+
+      return {
+        tracking_code: report.trackingCode,
+        issue_type: report.issueType,
+        status: report.status,
+        location_name: report.locationName,
+        area: report.area,
+        latitude: report.latitude,
+        longitude: report.longitude,
+        urgency: report.urgency,
+        near_sensitive_area:
+          report.nearSensitiveArea,
+        risk_score: report.riskScore,
+        risk_label: report.riskLabel,
+        created_at: report.createdAt,
+        updated_at: report.updatedAt || "",
+        assigned_organization_name:
+          assignment?.organization?.name || "",
+        assignment_status: assignment?.status || "",
+        resolution_status:
+          latestEvidence?.review_status || "",
+        community_status:
+          formatCommunityStatus(latestCommunity),
+      };
+    });
+
+    const csv = createCsv(exportRows, exportColumns);
+
+    downloadCsv(
+      `make-kenya-clean-urban-intelligence-${getCsvDateStamp()}.csv`,
+      csv
+    );
+  }
+
   return (
     <main className="page dashboard-page intelligence-page">
       <section className="section-heading">
@@ -319,6 +468,24 @@ export default function AdminIntelligencePage({
           Water, sanitation, drainage and utility risk
           overview for Nairobi response coordination.
         </p>
+      </section>
+
+      <section className="dashboard-panel intelligence-export-panel">
+        <div>
+          <h2>Export CSV</h2>
+          <p>
+            Exports privacy-safe operational fields only.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          className="btn secondary-btn"
+          onClick={handleExportCsv}
+          disabled={reports.length === 0}
+        >
+          Export CSV
+        </button>
       </section>
 
       <section className="stats-grid intelligence-stats-grid">

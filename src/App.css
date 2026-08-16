@@ -877,6 +877,28 @@ textarea:focus-visible {
   font-size: 24px;
 }
 
+.intelligence-export-panel {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-5);
+}
+
+.intelligence-export-panel h2 {
+  margin-bottom: 4px;
+}
+
+.intelligence-export-panel p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.intelligence-export-panel .btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .intelligence-chart-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   margin-top: var(--sp-5);
@@ -994,6 +1016,11 @@ textarea:focus-visible {
   }
 
   .sensor-explainer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .intelligence-export-panel {
     align-items: flex-start;
     flex-direction: column;
   }
