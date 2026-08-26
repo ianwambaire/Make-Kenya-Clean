@@ -26,3 +26,6 @@ enabled = true
 
 [functions.approve-access-request]
 verify_jwt = true
+
+[functions.ingest-sensor-reading]
+verify_jwt = false
