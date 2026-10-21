@@ -25,6 +25,18 @@ export const REPORT_FILTER_CATEGORIES = [
 
 export const DEFAULT_REPORT_CATEGORY = REPORT_CATEGORIES[0];
 
+export const REPORT_CATEGORY_HINTS = {
+  "Water Leak / Burst Pipe": "Visible pipe leak, broken pipe, or water escaping onto a road.",
+  "Blocked Drainage": "Blocked, clogged, or overflowing drain.",
+  "Sewage Overflow": "Overflowing sewer, sewage leak, or foul wastewater.",
+  "Unsafe Water Point": "Dirty, discoloured, or unsafe water source.",
+  "Flooding / Stagnant Water": "Standing or rising flood water around homes or roads.",
+  "Illegal Dumping": "Waste dumped in an unauthorized area.",
+  "Uncollected Waste": "Missed waste collection or overflowing bins.",
+  "Damaged Public Sanitation Facility": "Broken public toilet, latrine, or sanitation facility.",
+  "Other Utility Risk": "A utility issue that does not fit the categories above.",
+};
+
 export const REPORT_CATEGORY_RISK_SCORES = {
   "Water Leak / Burst Pipe": 36,
   "Blocked Drainage": 34,

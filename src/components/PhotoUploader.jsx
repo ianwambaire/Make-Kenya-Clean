@@ -11,6 +11,7 @@ export default function PhotoUploader({
   file,
   onChange,
   required = false,
+  disabled = false,
   hint = "Use a JPEG, PNG, or WebP image. Avoid faces, documents, ID cards, and unrelated personal information.",
 }) {
   const [isDragOver, setIsDragOver] = useState(false);
@@ -32,7 +33,8 @@ export default function PhotoUploader({
   }, [previewUrl]);
 
   function handleFiles(fileList) {
-    onChange(fileList?.[0] || null);
+    if (disabled || !fileList?.length) return;
+    onChange(fileList[0]);
   }
 
   function handleDrop(event) {
@@ -65,15 +67,8 @@ export default function PhotoUploader({
         }}
         onDragLeave={() => setIsDragOver(false)}
         onDrop={handleDrop}
-        onClick={() => inputRef.current?.click()}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            inputRef.current?.click();
-          }
-        }}
+        role="group"
+        aria-label="Photo selection"
       >
         <input
           id={id}
@@ -81,6 +76,8 @@ export default function PhotoUploader({
           type="file"
           accept="image/jpeg,image/png,image/webp"
           capture="environment"
+          disabled={disabled}
+          onClick={(event) => event.stopPropagation()}
           required={required}
           className="photo-dropzone-input"
           onChange={(event) => handleFiles(event.target.files)}
@@ -99,6 +96,7 @@ export default function PhotoUploader({
               className="photo-remove-btn"
               onClick={handleRemove}
               aria-label="Remove selected photo"
+              disabled={disabled}
             >
               <X size={16} />
             </button>
@@ -120,12 +118,18 @@ export default function PhotoUploader({
         )}
       </div>
 
+      <button type="button" className="btn secondary-btn" disabled={disabled} onClick={() => inputRef.current?.click()}>
+        <Camera size={18} /> {hasValidFile ? "Choose another photo" : "Take or choose a photo"}
+      </button>
+
       {validationMessage && (
-        <p className="form-message error-message">
+        <p className="form-message error-message" role="alert">
           <ImageOff size={14} />
           {validationMessage}
         </p>
       )}
+
+      {hasValidFile && <small role="status">Photo selected and ready. It will be processed and compressed when you submit.</small>}
 
       <small className="form-hint">{hint}</small>
     </div>

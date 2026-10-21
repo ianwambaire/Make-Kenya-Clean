@@ -834,7 +834,7 @@ textarea:focus-visible {
 
 .map-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) 400px;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--sp-5);
   align-items: start;
 }
@@ -2236,7 +2236,47 @@ textarea:focus-visible {
   background: var(--surface);
   color: var(--muted);
   font-size: 13px;
-  padding: var(--sp-4);
+  padding: 28px 24px;
+}
+
+.footer-inner { width: 100%; max-width: 1180px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+.footer-inner strong { color: var(--teal-dark); font-size: 18px; }
+.footer-inner p { margin: 6px 0 10px; font-size: 14px; }
+.footer-inner nav { display: flex; gap: 24px; flex-wrap: wrap; }
+.tracking-copy { display: grid; gap: 8px; margin: 12px 0; }
+.tracking-copy input { width: 100%; min-width: 0; font-family: var(--font-mono); font-size: 16px; padding: 10px; border: 1px solid var(--line-strong); border-radius: 4px; }
+.tracking-copy [role="status"] { font-size: 14px; }
+.tracking-code-box strong { display: block; overflow-wrap: anywhere; font-size: 24px; }
+.report-success-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.recent-report { padding-bottom: 20px; margin-bottom: 20px; border-bottom: 1px solid var(--line); }
+.recent-report h2 { font-size: 18px; }
+.report-next-steps { padding-left: 22px; line-height: 1.8; }
+.field-error { display: block; color: var(--danger); margin-top: 6px; }
+.report-form [aria-invalid="true"] { border-color: var(--danger); }
+.category-guide { margin-top: 8px; font-size: 14px; }
+.category-guide summary { cursor: pointer; color: var(--teal-dark); }
+.risk-guide { margin: 8px 0 12px; font-size: 14px; line-height: 1.5; color: var(--muted); max-width: 680px; }
+.risk-guide summary { cursor: pointer; color: var(--teal-dark); font-weight: 600; }
+.risk-guide p { font-size: 14px; margin: 8px 0; }
+.risk-guide dl { margin: 8px 0; }
+.risk-guide dl > div { display: flex; gap: 8px; margin: 4px 0; }
+.risk-guide dt { min-width: 54px; font-weight: 600; color: var(--ink); }
+.risk-guide dd { margin: 0; }
+.category-guide dl > div { margin-top: 12px; }
+.category-guide dt { font-weight: 600; }
+.category-guide dd { margin: 3px 0 0; color: var(--muted); }
+.photo-upload-meta span { overflow-wrap: anywhere; min-width: 0; }
+.photo-preview { max-width: 100%; object-fit: contain; }
+.map-page .map-layout { grid-template-columns: minmax(0, 1fr); }
+.map-page .leaflet-map { height: 600px; min-height: 420px; }
+.map-page .map-card { min-width: 0; padding: 8px; }
+.map-page .map-queue { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.map-page .map-intelligence-panel { font-size: 14px; }
+@media (max-width: 768px) {
+  .footer-inner { align-items: flex-start; flex-direction: column; gap: 20px; }
+  .map-page .map-queue { grid-template-columns: minmax(0, 1fr); }
+  .map-page .leaflet-map { height: 460px; }
+  .map-page .map-filter-controls { grid-template-columns: minmax(0, 1fr); }
 }
 
 .app-footer a {
@@ -3109,7 +3149,7 @@ textarea:focus-visible {
   display: grid;
   gap: 6px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -3491,4 +3531,18 @@ textarea:focus-visible {
   .responder-panel-header {
     flex-direction: column;
   }
+}
+
+.report-layout:has(.submitted-card) { grid-template-columns: minmax(0, 1fr); }
+.report-layout:has(.submitted-card) > .risk-preview-card { order: -1; }
+.photo-uploader .photo-preview { object-fit: contain; }
+.map-page .map-filter-controls { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.map-page .map-filter-bar { display: block; }
+.map-page .map-filter-bar summary { cursor: pointer; font-size: 16px; padding: 12px 0; color: var(--teal-dark); }
+.map-page .map-filter-bar summary svg { vertical-align: middle; margin-right: 8px; }
+.map-page .map-intelligence-panel span { font-size: 14px; text-transform: none; }
+.map-page .map-empty-state { min-height: 0; height: auto; padding: 16px; }
+@media (max-width: 768px) {
+  .map-page .map-filter-controls { grid-template-columns: minmax(0, 1fr); }
+  .map-page .map-intelligence-panel { grid-template-columns: minmax(0, 1fr); }
 }

@@ -1,4 +1,5 @@
 import { X } from "lucide-react";
+import { RISK_DESCRIPTIONS } from "../constants/riskDescriptions";
 import { REPORT_FILTER_CATEGORIES } from "../constants/reportCategories";
 
 const anyValue = "Any";
@@ -104,6 +105,7 @@ export default function ReportFilters({
 
         <select
           aria-label="Filter by risk level"
+          title={Object.entries(RISK_DESCRIPTIONS).map(([label, text]) => `${label}: ${text}`).join("\n")}
           value={filters.riskLabel || anyValue}
           onChange={(event) =>
             updateFilter("riskLabel", event.target.value)

@@ -1,6 +1,6 @@
 import { REPORT_CATEGORIES } from "../constants/reportCategories";
 
-const minimumDescriptionLength = 20;
+const minimumDescriptionLength = 40;
 
 const suggestionRules = [
   {
@@ -10,7 +10,6 @@ const suggestionRules = [
     score: 95,
     keywords: [
       "sewage",
-      "toilet",
       "wastewater",
       "foul smell",
       "sewer",
@@ -31,7 +30,6 @@ const suggestionRules = [
       "unsafe water",
       "contaminated",
       "brown water",
-      "smell",
       "turbid",
       "turbidity",
     ],
@@ -65,7 +63,6 @@ const suggestionRules = [
     keywords: [
       "blocked drain",
       "blocked drainage",
-      "drainage",
       "drain blocked",
       "clogged drain",
     ],
@@ -115,10 +112,7 @@ const suggestionRules = [
     riskLevel: "Medium",
     score: 64,
     keywords: [
-      "garbage",
       "dumping",
-      "trash",
-      "waste",
       "illegal dumping",
       "dumped",
     ],
@@ -148,7 +142,7 @@ const suggestionRules = [
 
 function findMatchedKeywords(description, keywords) {
   return keywords.filter((keyword) =>
-    description.includes(keyword)
+    new RegExp(`\\b${keyword}\\b`, "i").test(description)
   );
 }
 
@@ -176,25 +170,11 @@ export function getReportSuggestion(description) {
     .sort((first, second) => second.score - first.score);
 
   if (matches.length === 0) {
-    return {
-      suggestedIssueType: "Other Utility Risk",
-      suggestedUrgency: "Medium",
-      suggestedRiskLevel: "Medium",
-      reasons: [
-        "No strong keyword pattern was detected, so this should be reviewed as a general utility risk.",
-      ],
-      matchedKeywords: [],
-    };
+    return null;
   }
 
   const bestMatch = matches[0];
-  const reasons = Array.from(
-    new Set(
-      matches
-        .slice(0, 2)
-        .flatMap((match) => match.reasons)
-    )
-  ).slice(0, 3);
+  const reasons = bestMatch.reasons;
 
   return {
     suggestedIssueType: REPORT_CATEGORIES.includes(
@@ -207,9 +187,7 @@ export function getReportSuggestion(description) {
     reasons,
     matchedKeywords: Array.from(
       new Set(
-        matches.flatMap(
-          (match) => match.matchedKeywords
-        )
+        bestMatch.matchedKeywords
       )
     ),
   };

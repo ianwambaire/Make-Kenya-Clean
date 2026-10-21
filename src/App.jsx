@@ -3,9 +3,10 @@ import {
   Suspense,
   useCallback,
   useEffect,
+  useRef,
   useState,
 } from "react";
-import { Link, NavLink, Route, Routes } from "react-router-dom";
+import { Link, NavLink, Route, Routes, useSearchParams } from "react-router-dom";
 import {
   AlertTriangle,
   ArrowRight,
@@ -32,16 +33,22 @@ import {
 import { supabase } from "./lib/supabase";
 import NotificationBell from "./components/NotificationBell";
 import PhotoUploader from "./components/PhotoUploader";
+import CopyTrackingCode from "./components/CopyTrackingCode";
+import RiskGuide from "./components/RiskGuide";
+import { RISK_DESCRIPTIONS, riskTooltip } from "./constants/riskDescriptions";
+import { getRecentTrackingCode, rememberTrackingCode, clearRecentTrackingCode } from "./utils/recentReport";
 import ReportFilters from "./components/ReportFilters";
 import ReportTimeline from "./components/ReportTimeline";
 import {
   DEFAULT_REPORT_CATEGORY,
   REPORT_CATEGORIES,
+  REPORT_CATEGORY_HINTS,
   REPORT_CATEGORY_RISK_SCORES,
 } from "./constants/reportCategories";
 import {
   extensionForImage,
   prepareImageForUpload,
+  validateImageFile,
 } from "./utils/imageCompression";
 import { getReportSuggestion } from "./utils/reportSuggestions";
 import "./App.css";
@@ -621,6 +628,10 @@ function LandingPage({ reports }) {
 }
 
 function ReportIssue({ addReport }) {
+  const successRef = useRef(null);
+  const [locationMessage, setLocationMessage] = useState("");
+  const [isLocating, setIsLocating] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({});
   const [formData, setFormData] =
     useState(emptyReportForm);
 
@@ -638,6 +649,13 @@ function ReportIssue({ addReport }) {
 
   const [isSubmitting, setIsSubmitting] =
     useState(false);
+
+  useEffect(() => {
+    if (submittedReport) {
+      successRef.current?.focus();
+      successRef.current?.scrollIntoView({ block: "start" });
+    }
+  }, [submittedReport]);
 
   const riskScore = calculateRiskScore(
     formData.issueType,
@@ -668,14 +686,15 @@ function ReportIssue({ addReport }) {
 
   function handleUseCurrentLocation() {
     if (!navigator.geolocation) {
-      setFormMessage(
+      setLocationMessage(
         "Geolocation is not supported by this browser. Enter the location manually."
       );
 
       return;
     }
 
-    setFormMessage("Requesting your device location...");
+    setIsLocating(true);
+    setLocationMessage("Requesting your device location...");
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -686,13 +705,18 @@ function ReportIssue({ addReport }) {
           longitude:
             position.coords.longitude.toFixed(6),
         }));
-        setFormMessage("Location added. You can adjust it before submitting.");
+        setIsLocating(false);
+        setLocationMessage("Location detected successfully. Add a location name or nearby landmark.");
       },
-      () => {
-        setFormMessage(
-          "Location permission was denied or unavailable. You can enter the location manually."
+      (error) => {
+        setIsLocating(false);
+        setLocationMessage(
+          error.code === 1
+            ? "Location permission was denied. Enable location access in your browser or enter the location and coordinates manually."
+            : "We could not access your location. You can still enter the location and coordinates manually."
         );
-      }
+      },
+      { timeout: 15000, maximumAge: 60000, enableHighAccuracy: true }
     );
   }
 
@@ -752,6 +776,18 @@ function ReportIssue({ addReport }) {
 
     if (isSubmitting) return;
 
+    const errors = {};
+    if (formData.locationName.trim().length < 3) errors.locationName = "Enter a location or landmark with at least 3 characters.";
+    if (formData.description.trim().length < 10) errors.description = "Describe the issue in at least 10 characters.";
+    if (!formData.latitude.trim() || !Number.isFinite(Number(formData.latitude)) || Number(formData.latitude) < -5 || Number(formData.latitude) > 5) errors.latitude = "Enter a latitude within Kenya (-5 to 5).";
+    if (!formData.longitude.trim() || !Number.isFinite(Number(formData.longitude)) || Number(formData.longitude) < 33 || Number(formData.longitude) > 42) errors.longitude = "Enter a longitude within Kenya (33 to 42).";
+    if (photoFile && validateImageFile(photoFile)) errors.photo = validateImageFile(photoFile);
+    setFieldErrors(errors);
+    if (Object.keys(errors).length) {
+      setFormMessage("Please review the highlighted fields. Your information has been kept.");
+      return;
+    }
+
     if (!consentAccepted) {
       setFormMessage(
         "Please confirm the data-use notice before submitting."
@@ -763,6 +799,7 @@ function ReportIssue({ addReport }) {
     setFormMessage("");
     setSubmissionStep("Preparing report...");
 
+    let phase = "photo";
     try {
       const reportId = Date.now();
 
@@ -773,6 +810,7 @@ function ReportIssue({ addReport }) {
         await uploadReportPhoto(reportId);
 
       setSubmissionStep("Submitting report...");
+      phase = "report";
 
       const newReport = {
         id: reportId,
@@ -789,9 +827,9 @@ function ReportIssue({ addReport }) {
           : formData.reporterEmail.trim(),
         area: formData.locationName.trim(),
         latitude:
-          Number(formData.latitude) || -1.2921,
+          Number(formData.latitude),
         longitude:
-          Number(formData.longitude) || 36.8219,
+          Number(formData.longitude),
         riskScore,
         riskLabel,
         status: "Reported",
@@ -804,23 +842,25 @@ function ReportIssue({ addReport }) {
 
       if (!savedSuccessfully) {
         setFormMessage(
-          "The report could not be saved. Please check your connection and try again."
+          "We could not submit your report. Your information has been kept. Check your connection and try again. If you submitted several reports recently, please wait before retrying."
         );
         return;
       }
 
       setSubmissionStep("Complete");
       setSubmittedReport(newReport);
+      rememberTrackingCode(trackingCode);
       setPhotoFile(null);
       setConsentAccepted(false);
       setFormData(emptyReportForm);
       setFormMessage(
         `Report submitted successfully. Tracking code: ${trackingCode}`
       );
-    } catch (error) {
+    } catch {
       setFormMessage(
-        error.message ||
-          "Submission failed. Please try again."
+        phase === "photo"
+          ? "Your report could not be submitted because the photo upload failed. Try another JPEG, PNG, or WebP image, or remove the optional photo and try again. Your information has been kept."
+          : "We could not submit your report. Your information has been kept. Check your connection and try again."
       );
     } finally {
       setIsSubmitting(false);
@@ -880,8 +920,10 @@ function ReportIssue({ addReport }) {
             label="Photo Evidence"
             file={photoFile}
             onChange={setPhotoFile}
+            disabled={isSubmitting}
             hint="Upload evidence of the issue. Do not upload ID cards, private documents, unnecessary faces, or unrelated personal information."
           />
+          {fieldErrors.photo && <p className="field-error" role="alert">{fieldErrors.photo}</p>}
 
           <div className="form-group">
             <label>Issue Type</label>
@@ -897,6 +939,8 @@ function ReportIssue({ addReport }) {
                 </option>
               ))}
             </select>
+            <small className="form-hint">{REPORT_CATEGORY_HINTS[formData.issueType]}</small>
+            <details className="category-guide"><summary>Help me choose a category</summary><dl>{REPORT_CATEGORIES.map((category) => <div key={category}><dt>{category}</dt><dd>{REPORT_CATEGORY_HINTS[category]}</dd></div>)}</dl></details>
           </div>
 
           <div className="form-group">
@@ -905,11 +949,16 @@ function ReportIssue({ addReport }) {
             <input
               type="text"
               name="locationName"
+              aria-label="Location Name"
+              aria-invalid={Boolean(fieldErrors.locationName)}
+              minLength={3}
+              maxLength={240}
               placeholder="Example: Near Madaraka Primary School"
               value={formData.locationName}
               onChange={handleChange}
               required
             />
+            {fieldErrors.locationName && <small className="field-error">{fieldErrors.locationName}</small>}
           </div>
 
           <div className="location-helper">
@@ -917,13 +966,13 @@ function ReportIssue({ addReport }) {
               type="button"
               className="location-btn"
               onClick={handleUseCurrentLocation}
+              disabled={isLocating || isSubmitting}
             >
-              Use My Current Location
+              {isLocating ? "Detecting location..." : "Use my current location"}
             </button>
 
             <p>
-              This helps place the report accurately
-              on the risk map.
+              <span role="status">{locationMessage || "Use device location or enter coordinates manually. Coordinates are required to place your report accurately on the map."}</span>
             </p>
           </div>
 
@@ -935,9 +984,12 @@ function ReportIssue({ addReport }) {
                 type="number"
                 step="any"
                 name="latitude"
+                aria-label="Latitude"
+                aria-invalid={Boolean(fieldErrors.latitude)}
                 value={formData.latitude}
                 onChange={handleChange}
               />
+              {fieldErrors.latitude && <small className="field-error">{fieldErrors.latitude}</small>}
             </div>
 
             <div className="form-group">
@@ -947,9 +999,12 @@ function ReportIssue({ addReport }) {
                 type="number"
                 step="any"
                 name="longitude"
+                aria-label="Longitude"
+                aria-invalid={Boolean(fieldErrors.longitude)}
                 value={formData.longitude}
                 onChange={handleChange}
               />
+              {fieldErrors.longitude && <small className="field-error">{fieldErrors.longitude}</small>}
             </div>
           </div>
 
@@ -958,6 +1013,8 @@ function ReportIssue({ addReport }) {
 
             <select
               name="urgency"
+              aria-label="Urgency Level"
+              aria-describedby="urgency-explanation"
               value={formData.urgency}
               onChange={handleChange}
             >
@@ -966,6 +1023,8 @@ function ReportIssue({ addReport }) {
               <option>High</option>
               <option>Critical</option>
             </select>
+            <small id="urgency-explanation" className="form-hint">Your choice: how quickly does this need attention? {RISK_DESCRIPTIONS[formData.urgency]}</small>
+            <RiskGuide urgency />
           </div>
 
           <div className="form-group">
@@ -1066,12 +1125,17 @@ function ReportIssue({ addReport }) {
 
             <textarea
               name="description"
+              aria-label="Description"
+              aria-invalid={Boolean(fieldErrors.description)}
+              minLength={10}
+              maxLength={2000}
               placeholder="Briefly describe what is happening..."
               value={formData.description}
               onChange={handleChange}
               rows="5"
               required
             />
+            {fieldErrors.description && <small className="field-error">{fieldErrors.description}</small>}
           </div>
 
           {smartSuggestion && (
@@ -1081,6 +1145,8 @@ function ReportIssue({ addReport }) {
               </span>
 
               <h3>Rule-based AI-style assistant</h3>
+              <p>Suggested based on your description. It may be wrong; you can ignore or change this.</p>
+              <small className="form-hint">Suggested urgency is a choice you can apply. Suggested risk is an estimate; your calculated Maji Risk Index appears separately.</small>
 
               <p>
                 Suggested classification:{" "}
@@ -1121,6 +1187,7 @@ function ReportIssue({ addReport }) {
           )}
 
           <div className="form-group checkbox-group consent-box">
+            {!smartSuggestion && formData.description.trim().length >= 40 && <p className="form-hint" role="status">No confident suggestion yet. Choose the category that best matches what you see.</p>}
             <label className="checkbox-label">
               <input
                 type="checkbox"
@@ -1158,9 +1225,12 @@ function ReportIssue({ addReport }) {
 
           <p
             className={`risk-pill ${riskLabel.toLowerCase()}`}
+            title={riskTooltip(riskLabel)}
           >
             {riskLabel} Risk
           </p>
+          <small className="form-hint">System-calculated risk: {RISK_DESCRIPTIONS[riskLabel]}</small>
+          <RiskGuide />
 
           <p>
             This urban utility risk score helps response
@@ -1169,7 +1239,7 @@ function ReportIssue({ addReport }) {
           </p>
 
           {submittedReport && (
-            <div className="submitted-card">
+            <div className="submitted-card" ref={successRef} tabIndex={-1}>
               <h3>Report Submitted</h3>
 
               <div className="tracking-code-box">
@@ -1178,6 +1248,7 @@ function ReportIssue({ addReport }) {
                 <strong>
                   {submittedReport.trackingCode}
                 </strong>
+                <CopyTrackingCode code={submittedReport.trackingCode} />
 
                 <small>
                   Save this code to follow your report.
@@ -1200,11 +1271,15 @@ function ReportIssue({ addReport }) {
               </p>
 
               <Link
-                to="/track"
+                to={`/track?code=${encodeURIComponent(submittedReport.trackingCode)}`}
                 className="btn secondary-btn"
               >
                 Track This Report
               </Link>
+              <Link to="/map" className="btn secondary-btn">View public map</Link>
+              <h3>What happens next?</h3>
+              <p>Your report has been received. Use your tracking code to follow verification, prioritization, response and resolution. Response timing depends on verification and available teams.</p>
+              <ol className="report-next-steps"><li>Reported</li><li>Verification</li><li>Prioritization</li><li>Assignment / Response</li><li>Resolution</li><li>Community confirmation</li></ol>
 
               {submittedReport.photoUrl && (
                 <img
@@ -1222,8 +1297,10 @@ function ReportIssue({ addReport }) {
 }
 
 function TrackReport() {
+  const [searchParams] = useSearchParams();
+  const [recentCode, setRecentCode] = useState(getRecentTrackingCode);
   const [trackingCode, setTrackingCode] =
-    useState("");
+    useState(() => searchParams.get("code") || "");
 
   const [searchedReport, setSearchedReport] =
     useState(null);
@@ -1387,6 +1464,7 @@ function TrackReport() {
           className="report-form track-form"
           onSubmit={handleTrackReport}
         >
+          {recentCode && <div className="recent-report"><h2>Your most recent report</h2><strong>{recentCode}</strong><div className="report-success-actions"><button type="button" className="btn secondary-btn" onClick={() => setTrackingCode(recentCode)}>Use this code</button><button type="button" className="btn secondary-btn" onClick={() => { clearRecentTrackingCode(); setRecentCode(""); }}>Forget code</button></div><CopyTrackingCode code={recentCode} /></div>}
           <div className="form-group">
             <label>Tracking Code</label>
 
@@ -1470,6 +1548,7 @@ function TrackReport() {
                 {searchedReport.riskLabel} ·{" "}
                 {searchedReport.riskScore}/100
               </p>
+              <RiskGuide />
 
               <Link
                 to={`/reports/${searchedReport.trackingCode}`}
@@ -1647,6 +1726,7 @@ function OrganizationDashboard({
 
           <span
             className={`risk-pill small ${report?.riskLabel?.toLowerCase() || "medium"}`}
+            title={riskTooltip(report?.riskLabel)}
           >
             {report?.riskScore || 0}
           </span>
@@ -1745,6 +1825,7 @@ function OrganizationDashboard({
         </span>
 
         <h1>Organization Dashboard</h1>
+        <RiskGuide />
 
         <p>
           Logged in as{" "}
@@ -2230,6 +2311,7 @@ function Dashboard({
         </span>
 
         <h1>Make Kenya Clean Dashboard</h1>
+        <RiskGuide />
 
         <p>
           Logged in as{" "}
@@ -2341,6 +2423,7 @@ function Dashboard({
 
                   <span
                     className={`risk-pill small ${report.riskLabel.toLowerCase()}`}
+                    title={riskTooltip(report.riskLabel)}
                   >
                     {report.riskScore}
                   </span>
@@ -2475,6 +2558,7 @@ function Dashboard({
 
                       <span
                         className={`risk-pill small ${report.riskLabel.toLowerCase()}`}
+                        title={riskTooltip(report.riskLabel)}
                       >
                         {report.riskScore}
                       </span>
@@ -2856,6 +2940,7 @@ function Dashboard({
                     <td>
                       <span
                         className={`risk-pill table-pill ${report.riskLabel.toLowerCase()}`}
+                        title={riskTooltip(report.riskLabel)}
                       >
                         {report.riskLabel} ·{" "}
                         {report.riskScore}
@@ -2938,6 +3023,7 @@ function Champions({
         </span>
 
         <h1>Maji Champions</h1>
+        <RiskGuide />
 
         <p>
           Approved verifiers confirm public reports and
@@ -4458,10 +4544,6 @@ function App() {
         reportError.message
       );
 
-      alert(
-        "The report could not be saved. Please try again."
-      );
-
       return false;
     }
 
@@ -5148,9 +5230,7 @@ function App() {
         </Suspense>
       )}
       <footer className="app-footer">
-        <span>Make Kenya Clean</span>
-        <Link to="/privacy">Privacy Policy</Link>
-        <Link to="/terms">Terms of Use</Link>
+        <div className="footer-inner"><div><strong>Make Kenya Clean</strong><p>Community-powered water and sanitation intelligence.</p><small>© {new Date().getFullYear()} Make Kenya Clean</small></div><nav aria-label="Legal"><Link to="/privacy">Privacy Policy</Link><Link to="/terms">Terms of Use</Link></nav></div>
       </footer>
     </>
   );

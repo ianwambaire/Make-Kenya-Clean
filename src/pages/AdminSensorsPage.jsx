@@ -14,6 +14,12 @@ import {
 } from "../services/sensors";
 import { formatDate } from "../services/reports";
 
+const sensorRiskDescriptions = {
+  Normal: "Reading indicates limited immediate risk.",
+  Warning: "Reading needs attention and prompt review.",
+  Critical: "Immediate or severe risk requiring priority attention.",
+};
+
 const simulatedSensorAlerts = [
   {
     id: "SENSOR-DRN-KIB-001",
@@ -177,6 +183,7 @@ function SensorAlertsTable({
                 <td>
                   <span
                     className={`risk-pill small ${alert.riskLevel.toLowerCase()}`}
+                    title={sensorRiskDescriptions[alert.riskLevel]}
                   >
                     {alert.riskLevel}
                   </span>
@@ -339,6 +346,7 @@ export default function AdminSensorsPage() {
         </span>
 
         <h1>Sensor Alerts</h1>
+        <details className="risk-guide"><summary>What do sensor risk levels mean?</summary><p>Sensor levels describe readings, rather than a citizen's urgency choice. They are separate from the Maji Risk Index on reports.</p><dl>{Object.entries(sensorRiskDescriptions).map(([label, text]) => <div key={label}><dt>{label}</dt><dd>{text}</dd></div>)}</dl></details>
 
         <p>
           Live ESP32-ready sensor integration with simulated

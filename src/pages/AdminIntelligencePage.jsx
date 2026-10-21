@@ -1,4 +1,6 @@
 import { Link } from "react-router-dom";
+import RiskGuide from "../components/RiskGuide";
+import { riskTooltip } from "../constants/riskDescriptions";
 import {
   AlertTriangle,
   BarChart3,
@@ -463,6 +465,7 @@ export default function AdminIntelligencePage({
         </span>
 
         <h1>Urban Intelligence Dashboard</h1>
+        <RiskGuide />
 
         <p>
           Water, sanitation, drainage and utility risk
@@ -714,6 +717,7 @@ export default function AdminIntelligencePage({
 
                   <span
                     className={`risk-pill small ${report.riskLabel.toLowerCase()}`}
+                    title={riskTooltip(report.riskLabel)}
                   >
                     {report.riskScore}
                   </span>

@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import RiskGuide from "../components/RiskGuide";
+import { RISK_DESCRIPTIONS, riskTooltip } from "../constants/riskDescriptions";
 import { Link, useParams } from "react-router-dom";
 import {
   AlertTriangle,
@@ -457,10 +459,13 @@ export default function ReportDetailPage({
 
                 <strong
                   className={`risk-pill ${report.riskLabel.toLowerCase()}`}
+                  title={riskTooltip(report.riskLabel)}
                 >
                   {report.riskLabel} ·{" "}
                   {report.riskScore}/100
                 </strong>
+                <small>{RISK_DESCRIPTIONS[report.riskLabel]}</small>
+                <RiskGuide />
               </div>
             </div>
 

@@ -15,6 +15,8 @@ import {
   MapPinned,
 } from "lucide-react";
 import { REPORT_FILTER_CATEGORIES } from "../constants/reportCategories";
+import RiskGuide from "../components/RiskGuide";
+import { RISK_DESCRIPTIONS, riskTooltip } from "../constants/riskDescriptions";
 
 delete L.Icon.Default.prototype._getIconUrl;
 
@@ -216,6 +218,7 @@ export default function PublicMapPage({ reports }) {
         </span>
 
         <h1>Community Risk Map</h1>
+        <RiskGuide />
 
         <p>
           Explore public-safe urban water, sanitation,
@@ -243,10 +246,8 @@ export default function PublicMapPage({ reports }) {
         </div>
       </section>
 
-      <div className="map-filter-bar">
-        <ListFilter size={16} />
-
-        <span>UrbanPulse filters</span>
+      <details className="map-filter-bar">
+        <summary><ListFilter size={16} /> Filter reports</summary>
 
         <div className="map-filter-controls">
           <label>
@@ -287,6 +288,7 @@ export default function PublicMapPage({ reports }) {
             Priority
             <select
               value={filters.riskLabel}
+              title={filters.riskLabel === "All" ? "Filter by system-calculated Maji Risk Index level. See the risk-level guide above." : riskTooltip(filters.riskLabel)}
               onChange={(event) =>
                 updateFilter("riskLabel", event.target.value)
               }
@@ -329,7 +331,7 @@ export default function PublicMapPage({ reports }) {
             Reset
           </button>
         </div>
-      </div>
+      </details>
 
       <section className="map-intelligence-panel">
         <div>
@@ -369,7 +371,7 @@ export default function PublicMapPage({ reports }) {
 
       <section className="map-layout">
         <div className="map-card">
-          {validReports.length === 0 ? (
+          {validReports.length === 0 && (
             <div className="map-empty-state">
               <p>
                 {reports.length === 0
@@ -377,11 +379,11 @@ export default function PublicMapPage({ reports }) {
                   : "No reports match the active filters with location data."}
               </p>
             </div>
-          ) : (
+          )}
             <MapContainer
               center={[-1.2921, 36.8219]}
               zoom={12}
-              scrollWheelZoom
+              scrollWheelZoom={false}
               className="leaflet-map"
             >
               <TileLayer
@@ -421,6 +423,7 @@ export default function PublicMapPage({ reports }) {
                         <strong>Status:</strong>{" "}
                         {report.status}
                       </p>
+                      <p>{RISK_DESCRIPTIONS[report.riskLabel]} System-calculated risk, separate from reporter urgency.</p>
 
                       {report.trackingCode && (
                         <Link
@@ -443,7 +446,6 @@ export default function PublicMapPage({ reports }) {
                 </Marker>
               ))}
             </MapContainer>
-          )}
         </div>
 
         <div className="map-side-panel">
@@ -476,6 +478,7 @@ export default function PublicMapPage({ reports }) {
                   <div className="queue-item-actions">
                     <span
                       className={`risk-pill small ${report.riskLabel.toLowerCase()}`}
+                      title={riskTooltip(report.riskLabel)}
                     >
                       {report.riskScore}
                     </span>
