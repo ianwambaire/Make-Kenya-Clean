@@ -3545,8 +3545,6 @@ textarea:focus-visible {
 .report-location-picker { min-width: 0; margin: 12px 0; }
 .report-location-picker > p { font-size: 14px; }
 .report-location-map { width: 100%; height: 330px; position: relative; z-index: 0; margin-bottom: 12px; border: 1px solid var(--line); border-radius: 6px; }
-.location-advanced { margin: 12px 0 20px; font-size: 14px; }
-.location-advanced summary { cursor: pointer; color: var(--teal-dark); margin-bottom: 12px; }
 .mobile-menu-toggle { display: none; }
 @media (max-width: 700px) {
   .navbar { flex-direction: row; align-items: center; flex-wrap: wrap; }

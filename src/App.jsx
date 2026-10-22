@@ -726,17 +726,13 @@ function ReportIssue({ addReport }) {
       checked,
     } = event.target;
 
-    if (["locationName", "latitude", "longitude"].includes(name)) {
-      if (name === "locationName") {
-        landmarkRevision.current += 1;
-        clearTimeout(lookupTimer.current);
-        setIsResolvingName(false);
-      } else {
-        cancelLocationLookup();
-      }
-      setLocationMessage(name === "locationName"
-        ? (hasValidLocation ? "Landmark updated. Your selected coordinates have been kept." : "Landmark updated. Choose a point on the map or use your current location.")
-        : "Coordinates updated. Check the selected point on the map.");
+    if (name === "locationName") {
+      landmarkRevision.current += 1;
+      clearTimeout(lookupTimer.current);
+      setIsResolvingName(false);
+      setLocationMessage(hasValidLocation
+        ? "Landmark updated. Your selected location has been kept."
+        : "Landmark updated. Choose a point on the map or use your current location.");
     }
 
     setFormData((current) => ({
@@ -747,7 +743,6 @@ function ReportIssue({ addReport }) {
     setFieldErrors((current) => ({
       ...current,
       [name]: "",
-      ...(["latitude", "longitude"].includes(name) ? { location: "" } : {}),
     }));
   }
 
@@ -864,7 +859,7 @@ function ReportIssue({ addReport }) {
     if (!REPORT_CATEGORIES.includes(formData.issueType)) errors.issueType = "Please select an issue category.";
     if (formData.locationName.trim().length < 3) errors.locationName = "Please provide a location or landmark with at least 3 characters.";
     if (formData.description.trim().length < 10) errors.description = "Please describe the issue in at least 10 characters.";
-    if (!hasValidLocation) errors.location = "Please use your current location or select a point on the map within Kenya.";
+    if (!hasValidLocation) errors.location = "Please use your current location or select the issue location on the map.";
     if (photoFile && validateImageFile(photoFile)) errors.photo = validateImageFile(photoFile);
     if (!formData.isAnonymous && !formRef.current.elements.reporterEmail.validity.valid) errors.reporterEmail = "Please enter a valid email address or leave it blank.";
     if (!consentAccepted) errors.consent = "Please confirm the data-use notice before submitting.";
@@ -1076,50 +1071,12 @@ function ReportIssue({ addReport }) {
             <p>
               <span role="status" aria-busy={isResolvingName}>{locationMessage.startsWith("Location detected:") && <CheckCircle2 size={16} aria-hidden="true" />} {locationMessage || "Choose your current location or select a point on the map. We will try to find its place name for you."}</span>
             </p>
-            <small className="form-hint">Place names by <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>. Selected coordinates are sent to its lookup service. Names may refer to a nearby mapped place; please check and edit if needed.</small>
+            <small className="form-hint">Place names by <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>. Your selected point is sent to its lookup service. Names may refer to a nearby mapped place; please check and edit if needed.</small>
             <small id="location-selection-error" className="field-error">{fieldErrors.location}</small>
           </div>
 
           {showLocationMap && <div id="report-location-map-panel"><Suspense fallback={<p role="status">Loading location map...</p>}><ReportLocationPicker latitude={formData.latitude} longitude={formData.longitude} onSelect={handleSelectLocation} disabled={isSubmitting} /></Suspense></div>}
           {hasValidLocation && <p className="form-hint" role="status">A point is selected for {formData.locationName.trim() || "your report"}. Open the location map to view or change the pin.</p>}
-
-          <details className="location-advanced"><summary>Advanced: enter coordinates</summary>
-          <div className="form-row">
-            <div className="form-group">
-              <label>Latitude</label>
-
-              <input
-                type="number"
-                step="any"
-                name="latitude"
-                aria-label="Latitude"
-                aria-invalid={Boolean(fieldErrors.location)}
-                aria-describedby="location-selection-error"
-                value={formData.latitude}
-                onChange={handleChange}
-                min={-5}
-                max={5}
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Longitude</label>
-
-              <input
-                type="number"
-                step="any"
-                name="longitude"
-                aria-label="Longitude"
-                aria-invalid={Boolean(fieldErrors.location)}
-                aria-describedby="location-selection-error"
-                value={formData.longitude}
-                onChange={handleChange}
-                min={33}
-                max={42}
-              />
-            </div>
-          </div>
-          </details>
 
           <div className="form-group">
             <label>Urgency Level</label>
