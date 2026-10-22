@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Link, NavLink, Route, Routes, useSearchParams } from "react-router-dom";
+import { Link, NavLink, Route, Routes, useSearchParams, useLocation } from "react-router-dom";
 import {
   AlertTriangle,
   ArrowRight,
@@ -33,6 +33,7 @@ import {
 import { supabase } from "./lib/supabase";
 import NotificationBell from "./components/NotificationBell";
 import PhotoUploader from "./components/PhotoUploader";
+import NavigationMenu from "./components/NavigationMenu";
 import CopyTrackingCode from "./components/CopyTrackingCode";
 import RiskGuide from "./components/RiskGuide";
 import { RISK_DESCRIPTIONS, riskTooltip } from "./constants/riskDescriptions";
@@ -68,6 +69,7 @@ const ReportDetailPage = lazy(() =>
 const PublicMapPage = lazy(() =>
   import("./pages/PublicMapPage")
 );
+const ReportLocationPicker = lazy(() => import("./components/ReportLocationPicker"));
 const PrivacyPolicyPage = lazy(() =>
   import("./pages/PrivacyPolicyPage")
 );
@@ -629,6 +631,8 @@ function LandingPage({ reports }) {
 
 function ReportIssue({ addReport }) {
   const successRef = useRef(null);
+  const formRef = useRef(null);
+  const [showLocationMap, setShowLocationMap] = useState(false);
   const [locationMessage, setLocationMessage] = useState("");
   const [isLocating, setIsLocating] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
@@ -668,6 +672,10 @@ function ReportIssue({ addReport }) {
   const smartSuggestion = getReportSuggestion(
     formData.description
   );
+  const hasValidLocation = Boolean(formData.latitude.trim() && formData.longitude.trim()) &&
+    Number.isFinite(Number(formData.latitude)) && Number.isFinite(Number(formData.longitude)) &&
+    Number(formData.latitude) >= -5 && Number(formData.latitude) <= 5 &&
+    Number(formData.longitude) >= 33 && Number(formData.longitude) <= 42;
 
   function handleChange(event) {
     const {
@@ -682,12 +690,27 @@ function ReportIssue({ addReport }) {
       [name]:
         type === "checkbox" ? checked : value,
     }));
+    setFieldErrors((current) => ({
+      ...current,
+      [name]: "",
+      ...(["latitude", "longitude"].includes(name) ? { location: "" } : {}),
+    }));
+  }
+
+  function handleSelectLocation({ lat, lng }) {
+    if (lat < -5 || lat > 5 || lng < 33 || lng > 42) {
+      setLocationMessage("Please select a point within Kenya.");
+      return;
+    }
+    setFormData((current) => ({ ...current, latitude: lat.toFixed(6), longitude: lng.toFixed(6) }));
+    setFieldErrors((current) => ({ ...current, location: "" }));
+    setLocationMessage("Location selected. The pin marks your report location; select another point to change it.");
   }
 
   function handleUseCurrentLocation() {
     if (!navigator.geolocation) {
       setLocationMessage(
-        "Geolocation is not supported by this browser. Enter the location manually."
+        "Geolocation is not supported by this browser. Select your location on the map instead."
       );
 
       return;
@@ -706,14 +729,15 @@ function ReportIssue({ addReport }) {
             position.coords.longitude.toFixed(6),
         }));
         setIsLocating(false);
+        setFieldErrors((current) => ({ ...current, location: "" }));
         setLocationMessage("Location detected successfully. Add a location name or nearby landmark.");
       },
       (error) => {
         setIsLocating(false);
         setLocationMessage(
           error.code === 1
-            ? "Location permission was denied. Enable location access in your browser or enter the location and coordinates manually."
-            : "We could not access your location. You can still enter the location and coordinates manually."
+            ? "Location permission was denied. Enable location access in your browser or select your location on the map."
+            : "We could not access your location. Select your location on the map instead."
         );
       },
       { timeout: 15000, maximumAge: 60000, enableHighAccuracy: true }
@@ -777,21 +801,22 @@ function ReportIssue({ addReport }) {
     if (isSubmitting) return;
 
     const errors = {};
-    if (formData.locationName.trim().length < 3) errors.locationName = "Enter a location or landmark with at least 3 characters.";
-    if (formData.description.trim().length < 10) errors.description = "Describe the issue in at least 10 characters.";
-    if (!formData.latitude.trim() || !Number.isFinite(Number(formData.latitude)) || Number(formData.latitude) < -5 || Number(formData.latitude) > 5) errors.latitude = "Enter a latitude within Kenya (-5 to 5).";
-    if (!formData.longitude.trim() || !Number.isFinite(Number(formData.longitude)) || Number(formData.longitude) < 33 || Number(formData.longitude) > 42) errors.longitude = "Enter a longitude within Kenya (33 to 42).";
+    if (!REPORT_CATEGORIES.includes(formData.issueType)) errors.issueType = "Please select an issue category.";
+    if (formData.locationName.trim().length < 3) errors.locationName = "Please provide a location or landmark with at least 3 characters.";
+    if (formData.description.trim().length < 10) errors.description = "Please describe the issue in at least 10 characters.";
+    if (!hasValidLocation) errors.location = "Please use your current location or select a point on the map within Kenya.";
     if (photoFile && validateImageFile(photoFile)) errors.photo = validateImageFile(photoFile);
+    if (!formData.isAnonymous && !formRef.current.elements.reporterEmail.validity.valid) errors.reporterEmail = "Please enter a valid email address or leave it blank.";
+    if (!consentAccepted) errors.consent = "Please confirm the data-use notice before submitting.";
     setFieldErrors(errors);
     if (Object.keys(errors).length) {
       setFormMessage("Please review the highlighted fields. Your information has been kept.");
-      return;
-    }
-
-    if (!consentAccepted) {
-      setFormMessage(
-        "Please confirm the data-use notice before submitting."
-      );
+      requestAnimationFrame(() => {
+        const firstInvalid = Array.from(formRef.current.querySelectorAll("[data-validation-field]")).find((element) => errors[element.dataset.validationField]);
+        if (!firstInvalid) return;
+        firstInvalid.focus({ preventScroll: true });
+        firstInvalid.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "center" });
+      });
       return;
     }
 
@@ -888,6 +913,8 @@ function ReportIssue({ addReport }) {
       <section className="report-layout">
         <form
           className="report-form"
+          ref={formRef}
+          noValidate
           onSubmit={handleSubmit}
         >
           {formMessage && (
@@ -921,6 +948,7 @@ function ReportIssue({ addReport }) {
             file={photoFile}
             onChange={setPhotoFile}
             disabled={isSubmitting}
+            validationField="photo"
             hint="Upload evidence of the issue. Do not upload ID cards, private documents, unnecessary faces, or unrelated personal information."
           />
           {fieldErrors.photo && <p className="field-error" role="alert">{fieldErrors.photo}</p>}
@@ -930,6 +958,10 @@ function ReportIssue({ addReport }) {
 
             <select
               name="issueType"
+              aria-label="Issue Type"
+              data-validation-field="issueType"
+              aria-invalid={Boolean(fieldErrors.issueType)}
+              aria-describedby="issue-category-error"
               value={formData.issueType}
               onChange={handleChange}
             >
@@ -939,6 +971,7 @@ function ReportIssue({ addReport }) {
                 </option>
               ))}
             </select>
+            <small id="issue-category-error" className="field-error">{fieldErrors.issueType}</small>
             <small className="form-hint">{REPORT_CATEGORY_HINTS[formData.issueType]}</small>
             <details className="category-guide"><summary>Help me choose a category</summary><dl>{REPORT_CATEGORIES.map((category) => <div key={category}><dt>{category}</dt><dd>{REPORT_CATEGORY_HINTS[category]}</dd></div>)}</dl></details>
           </div>
@@ -949,6 +982,8 @@ function ReportIssue({ addReport }) {
             <input
               type="text"
               name="locationName"
+              data-validation-field="locationName"
+              aria-describedby="location-name-error"
               aria-label="Location Name"
               aria-invalid={Boolean(fieldErrors.locationName)}
               minLength={3}
@@ -958,10 +993,11 @@ function ReportIssue({ addReport }) {
               onChange={handleChange}
               required
             />
-            {fieldErrors.locationName && <small className="field-error">{fieldErrors.locationName}</small>}
+            <small id="location-name-error" className="field-error">{fieldErrors.locationName}</small>
           </div>
 
           <div className="location-helper">
+            <div className="location-choice-controls">
             <button
               type="button"
               className="location-btn"
@@ -970,12 +1006,22 @@ function ReportIssue({ addReport }) {
             >
               {isLocating ? "Detecting location..." : "Use my current location"}
             </button>
+            <span>OR</span>
+            <button type="button" className="btn secondary-btn" data-validation-field="location" aria-invalid={Boolean(fieldErrors.location)} aria-describedby="location-selection-error" aria-expanded={showLocationMap} aria-controls="report-location-map-panel" disabled={isSubmitting} onClick={() => setShowLocationMap(!showLocationMap)}>
+              <MapPinned size={18} /> {showLocationMap ? "Hide location map" : "Select location on map"}
+            </button>
+            </div>
 
             <p>
-              <span role="status">{locationMessage || "Use device location or enter coordinates manually. Coordinates are required to place your report accurately on the map."}</span>
+              <span role="status">{locationMessage || "Choose your current location or select a point on the map. Add a nearby landmark above."}</span>
             </p>
+            <small id="location-selection-error" className="field-error">{fieldErrors.location}</small>
           </div>
 
+          {showLocationMap && <div id="report-location-map-panel"><Suspense fallback={<p role="status">Loading location map...</p>}><ReportLocationPicker latitude={formData.latitude} longitude={formData.longitude} onSelect={handleSelectLocation} disabled={isSubmitting} /></Suspense></div>}
+          {hasValidLocation && <p className="form-hint" role="status">A point is selected for {formData.locationName.trim() || "your report"}. Open the location map to view or change the pin.</p>}
+
+          <details className="location-advanced"><summary>Advanced: enter coordinates</summary>
           <div className="form-row">
             <div className="form-group">
               <label>Latitude</label>
@@ -985,11 +1031,13 @@ function ReportIssue({ addReport }) {
                 step="any"
                 name="latitude"
                 aria-label="Latitude"
-                aria-invalid={Boolean(fieldErrors.latitude)}
+                aria-invalid={Boolean(fieldErrors.location)}
+                aria-describedby="location-selection-error"
                 value={formData.latitude}
                 onChange={handleChange}
+                min={-5}
+                max={5}
               />
-              {fieldErrors.latitude && <small className="field-error">{fieldErrors.latitude}</small>}
             </div>
 
             <div className="form-group">
@@ -1000,13 +1048,16 @@ function ReportIssue({ addReport }) {
                 step="any"
                 name="longitude"
                 aria-label="Longitude"
-                aria-invalid={Boolean(fieldErrors.longitude)}
+                aria-invalid={Boolean(fieldErrors.location)}
+                aria-describedby="location-selection-error"
                 value={formData.longitude}
                 onChange={handleChange}
+                min={33}
+                max={42}
               />
-              {fieldErrors.longitude && <small className="field-error">{fieldErrors.longitude}</small>}
             </div>
           </div>
+          </details>
 
           <div className="form-group">
             <label>Urgency Level</label>
@@ -1113,9 +1164,13 @@ function ReportIssue({ addReport }) {
                 <input
                   type="email"
                   name="reporterEmail"
+                  data-validation-field="reporterEmail"
+                  aria-invalid={Boolean(fieldErrors.reporterEmail)}
+                  aria-describedby="reporter-email-error"
                   value={formData.reporterEmail}
                   onChange={handleChange}
                 />
+                <small id="reporter-email-error" className="field-error">{fieldErrors.reporterEmail}</small>
               </div>
             </>
           )}
@@ -1125,6 +1180,8 @@ function ReportIssue({ addReport }) {
 
             <textarea
               name="description"
+              data-validation-field="description"
+              aria-describedby="description-error"
               aria-label="Description"
               aria-invalid={Boolean(fieldErrors.description)}
               minLength={10}
@@ -1135,7 +1192,7 @@ function ReportIssue({ addReport }) {
               rows="5"
               required
             />
-            {fieldErrors.description && <small className="field-error">{fieldErrors.description}</small>}
+            <small id="description-error" className="field-error">{fieldErrors.description}</small>
           </div>
 
           {smartSuggestion && (
@@ -1192,6 +1249,9 @@ function ReportIssue({ addReport }) {
               <input
                 type="checkbox"
                 checked={consentAccepted}
+                data-validation-field="consent"
+                aria-invalid={Boolean(fieldErrors.consent)}
+                aria-describedby="consent-error"
                 onChange={(event) =>
                   setConsentAccepted(event.target.checked)
                 }
@@ -1199,6 +1259,7 @@ function ReportIssue({ addReport }) {
               />
               I understand that report details, location, and report photo may appear publicly. Contact details stay private and are used only for follow-up and response coordination.
             </label>
+            <small id="consent-error" className="field-error">{fieldErrors.consent}</small>
             <small className="form-hint">
               Read the <Link to="/privacy">Privacy Policy</Link> and{" "}
               <Link to="/terms">Terms of Use</Link>.
@@ -4249,6 +4310,7 @@ function ProtectedPage({
 }
 
 function App() {
+  const location = useLocation();
   const [publicReports, setPublicReports] =
     useState([]);
 
@@ -4928,7 +4990,7 @@ function App() {
 
   return (
     <>
-      <nav className="navbar">
+      <nav className="navbar" aria-label="Main navigation">
         <Link
           to="/"
           className="logo"
@@ -4937,7 +4999,7 @@ function App() {
           Make Kenya Clean
         </Link>
 
-        <div className="nav-links">
+        <NavigationMenu key={location.key}>
           <NavLink
             to="/"
             end
@@ -4999,7 +5061,7 @@ function App() {
               Staff Login
             </NavLink>
           )}
-        </div>
+        </NavigationMenu>
       </nav>
 
       {isLoadingReports ? (

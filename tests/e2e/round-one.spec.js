@@ -15,6 +15,7 @@ test.beforeEach(async ({ page }) => {
 async function fillReport(page) {
   await page.goto("/report");
   await page.getByLabel("Location Name", { exact: true }).fill("Nairobi test landmark");
+  await page.getByText("Advanced: enter coordinates", { exact: true }).click();
   await page.getByLabel("Latitude", { exact: true }).fill("-1.29");
   await page.getByLabel("Longitude", { exact: true }).fill("36.82");
   await page.getByLabel("Description", { exact: true }).fill("There is a burst pipe outside the market entrance, spilling water across the road.");
@@ -89,7 +90,7 @@ test("database failure keeps data and missing coordinates never silently use Nai
   await fillReport(page);
   await page.getByLabel("Latitude", { exact: true }).fill("");
   await page.getByRole("button", { name: "Submit Report", exact: true }).click();
-  await expect(page.getByText("Enter a latitude within Kenya (-5 to 5).")).toBeVisible();
+  await expect(page.getByText("Please use your current location or select a point on the map within Kenya.")).toBeVisible();
   await page.getByLabel("Latitude", { exact: true }).fill("-1.29");
   await page.route("**/rest/v1/reports", (route) => route.fulfill({ status: 400, contentType: "application/json", body: '{"message":"private database detail"}' }));
   await page.getByRole("button", { name: "Submit Report", exact: true }).click();
@@ -109,6 +110,87 @@ test("suggestions remain optional and vague text has no forced classification", 
   await page.getByLabel("Description", { exact: true }).fill("Something seems wrong around our neighbourhood and I am unsure what caused it.");
   await expect(page.getByText(/No confident suggestion yet/)).toBeVisible();
   await expect(page.getByRole("button", { name: "Apply suggestion" })).toHaveCount(0);
+});
+
+test("validation focuses each missing field in order and retains input", async ({ page }) => {
+  await page.goto("/report");
+  const submit = page.getByRole("button", { name: "Submit Report", exact: true });
+  const locationName = page.getByLabel("Location Name", { exact: true });
+  await submit.click();
+  await expect(locationName).toBeFocused();
+  await expect(locationName).toBeInViewport();
+  await expect(locationName).toHaveAttribute("aria-invalid", "true");
+  await expect(page.getByText(/Please provide a location or landmark/)).toBeVisible();
+  await locationName.fill("Kibera market entrance");
+  await submit.click();
+  const chooseMap = page.getByRole("button", { name: "Select location on map", exact: true });
+  await expect(chooseMap).toBeFocused();
+  await chooseMap.click();
+  await expect(page.locator(".report-location-map")).toBeVisible();
+  await page.getByRole("button", { name: "Use map centre" }).click();
+  await submit.click();
+  const description = page.getByLabel("Description", { exact: true });
+  await expect(description).toBeFocused();
+  await expect(description).toBeInViewport();
+  await description.fill("Water is flooding the entrance to the market.");
+  await submit.click();
+  await expect(page.getByRole("checkbox", { name: /I understand/ })).toBeFocused();
+  await expect(locationName).toHaveValue("Kibera market entrance");
+});
+
+test("map selection after geolocation failure submits internal coordinates", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "geolocation", { value: { getCurrentPosition: (_success, failure) => failure({ code: 1 }) } });
+  });
+  await page.goto("/report");
+  await page.getByLabel("Location Name", { exact: true }).fill("Kibera market entrance");
+  await page.getByRole("button", { name: "Use my current location" }).click();
+  await expect(page.getByText(/Location permission was denied/)).toBeVisible();
+  await page.getByRole("button", { name: "Select location on map", exact: true }).click();
+  const map = page.locator(".report-location-map");
+  await expect(map).toBeVisible();
+  const bounds = await map.boundingBox();
+  await map.click({ position: { x: bounds.width * 0.55, y: bounds.height * 0.55 } });
+  await expect(map.locator(".leaflet-marker-icon")).toHaveCount(1);
+  await expect(map.locator(".leaflet-marker-icon")).toBeVisible();
+  await expect.poll(() => map.locator(".leaflet-marker-icon").evaluate((image) => image.complete && image.naturalWidth > 0)).toBe(true);
+  await expect(page.getByText(/Location selected. The pin/)).toBeVisible();
+  const latitude = page.getByLabel("Latitude", { exact: true });
+  const before = await latitude.inputValue();
+  await map.click({ position: { x: bounds.width * 0.7, y: bounds.height * 0.6 } });
+  await expect(latitude).not.toHaveValue(before);
+  const selectedLatitude = await latitude.inputValue();
+  const selectedLongitude = await page.getByLabel("Longitude", { exact: true }).inputValue();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.locator(".report-location-picker").screenshot({ path: test.info().outputPath("location-picker.png") });
+  await page.getByLabel("Description", { exact: true }).fill("Water is flooding the entrance to the market.");
+  await page.getByRole("checkbox", { name: /I understand/ }).check();
+  const requestPromise = page.waitForRequest((request) => request.method() === "POST" && new URL(request.url()).pathname.endsWith("/reports"));
+  await page.getByRole("button", { name: "Submit Report", exact: true }).click();
+  const body = (await requestPromise).postDataJSON();
+  expect(body.latitude).toBe(Number(selectedLatitude));
+  expect(body.longitude).toBe(Number(selectedLongitude));
+  await expect(page.getByRole("heading", { name: "Report Submitted" })).toBeVisible();
+});
+
+test("mobile menu closes on navigation and Escape", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/report");
+  const nav = page.getByRole("navigation", { name: "Main navigation" });
+  const toggle = page.getByRole("button", { name: "Open navigation menu" });
+  await expect(toggle).toBeVisible();
+  await expect(nav.getByRole("link", { name: "Track", exact: true })).toBeHidden();
+  await toggle.click();
+  await expect(page.getByRole("button", { name: "Close navigation menu" })).toHaveAttribute("aria-expanded", "true");
+  await nav.screenshot({ path: test.info().outputPath("mobile-menu-open.png") });
+  await page.keyboard.press("Escape");
+  await expect(toggle).toBeFocused();
+  await toggle.click();
+  await nav.getByRole("link", { name: "Track", exact: true }).click();
+  await expect(page).toHaveURL(/\/track$/);
+  await expect(page.getByRole("button", { name: "Open navigation menu" })).toHaveAttribute("aria-expanded", "false");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: test.info().outputPath("mobile-navigation.png"), fullPage: true });
 });
 
 for (const width of [1440, 1024, 768, 390]) {

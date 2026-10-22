@@ -3537,6 +3537,27 @@ textarea:focus-visible {
 .report-layout:has(.submitted-card) > .risk-preview-card { order: -1; }
 .photo-uploader .photo-preview { object-fit: contain; }
 .map-page .map-filter-controls { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.report-form [data-validation-field] { scroll-margin-top: 100px; }
+.report-form [aria-invalid="true"] { outline: 2px solid var(--danger-tint); outline-offset: 2px; }
+.field-error:empty { display: none; }
+.location-choice-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.location-choice-controls > span { color: var(--muted); font-size: 13px; }
+.report-location-picker { min-width: 0; margin: 12px 0; }
+.report-location-picker > p { font-size: 14px; }
+.report-location-map { width: 100%; height: 330px; position: relative; z-index: 0; margin-bottom: 12px; border: 1px solid var(--line); border-radius: 6px; }
+.location-advanced { margin: 12px 0 20px; font-size: 14px; }
+.location-advanced summary { cursor: pointer; color: var(--teal-dark); margin-bottom: 12px; }
+.mobile-menu-toggle { display: none; }
+@media (max-width: 700px) {
+  .navbar { flex-direction: row; align-items: center; flex-wrap: wrap; }
+  .mobile-menu-toggle { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--surface); color: var(--teal-dark); cursor: pointer; }
+  .navbar .nav-links { display: none; width: 100%; overflow: visible; max-height: calc(100dvh - 100px); overflow-y: auto; }
+  .navbar .nav-links.is-open { display: flex; flex-direction: column; align-items: stretch; gap: 4px; }
+  .navbar .nav-links > a, .navbar .nav-button { min-height: 44px; padding: 10px 8px; }
+  .location-choice-controls { flex-direction: column; align-items: stretch; }
+  .location-choice-controls > span { text-align: center; }
+  .report-location-map { height: 300px; }
+}
 .map-page .map-filter-bar { display: block; }
 .map-page .map-filter-bar summary { cursor: pointer; font-size: 16px; padding: 12px 0; color: var(--teal-dark); }
 .map-page .map-filter-bar summary svg { vertical-align: middle; margin-right: 8px; }

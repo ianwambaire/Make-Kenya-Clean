@@ -12,6 +12,7 @@ export default function PhotoUploader({
   onChange,
   required = false,
   disabled = false,
+  validationField,
   hint = "Use a JPEG, PNG, or WebP image. Avoid faces, documents, ID cards, and unrelated personal information.",
 }) {
   const [isDragOver, setIsDragOver] = useState(false);
@@ -118,12 +119,12 @@ export default function PhotoUploader({
         )}
       </div>
 
-      <button type="button" className="btn secondary-btn" disabled={disabled} onClick={() => inputRef.current?.click()}>
+      <button type="button" className="btn secondary-btn" disabled={disabled} data-validation-field={validationField} aria-invalid={Boolean(validationMessage)} aria-describedby={validationMessage ? `${id}-error` : undefined} onClick={() => inputRef.current?.click()}>
         <Camera size={18} /> {hasValidFile ? "Choose another photo" : "Take or choose a photo"}
       </button>
 
       {validationMessage && (
-        <p className="form-message error-message" role="alert">
+        <p id={`${id}-error`} className="form-message error-message" role="alert">
           <ImageOff size={14} />
           {validationMessage}
         </p>
