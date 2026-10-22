@@ -761,6 +761,12 @@ function ReportIssue({ addReport }) {
   function handleUseCurrentLocation() {
     const requestId = cancelLocationLookup();
     const revision = landmarkRevision.current;
+    if (!window.isSecureContext) {
+      setLocationMessage(
+        "Current location requires a secure HTTPS connection on this device. Please use the secure deployed website or select the location on the map."
+      );
+      return;
+    }
     if (!navigator.geolocation) {
       setLocationMessage(
         "Geolocation is not supported by this browser. Select your location on the map instead."
@@ -789,10 +795,13 @@ function ReportIssue({ addReport }) {
       (error) => {
         if (locationRequest.current !== requestId) return;
         setIsLocating(false);
+        const errorMessages = {
+          1: "Location access was denied. In Safari, allow Location for this website and try again, or select the location on the map.",
+          2: "We couldn't determine your location. Please try again or select the location on the map.",
+          3: "Location detection took too long. Please try again or select the location on the map.",
+        };
         setLocationMessage(
-          error.code === 1
-            ? "Location permission was denied. Enable location access in your browser or select your location on the map."
-            : "We could not access your location. Select your location on the map instead."
+          errorMessages[error.code] || "We could not access your location. Select your location on the map instead."
         );
       },
       { timeout: 15000, maximumAge: 60000, enableHighAccuracy: true }

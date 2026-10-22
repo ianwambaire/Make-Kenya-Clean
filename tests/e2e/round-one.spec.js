@@ -39,6 +39,48 @@ async function mockGps(page) {
   });
 }
 
+test("insecure context does not request GPS and preserves map fallback", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "isSecureContext", { value: false });
+    window.gpsRequests = 0;
+    Object.defineProperty(navigator, "geolocation", { value: { getCurrentPosition: () => { window.gpsRequests += 1; } } });
+  });
+  await page.goto("/report");
+  await page.getByRole("button", { name: "Use my current location" }).click();
+  await expect(page.getByText("Current location requires a secure HTTPS connection on this device. Please use the secure deployed website or select the location on the map.", { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => window.gpsRequests)).toBe(0);
+  await expect(page.getByText(/Location access was denied/)).toHaveCount(0);
+  await page.getByRole("button", { name: "Select location on map", exact: true }).click();
+  await page.getByRole("button", { name: "Use map centre" }).click();
+  await expect(page.getByLabel("Location Name", { exact: true })).toHaveValue("Madaraka Estate, Nairobi");
+});
+
+for (const [code, message] of [
+  [1, "Location access was denied. In Safari, allow Location for this website and try again, or select the location on the map."],
+  [2, "We couldn't determine your location. Please try again or select the location on the map."],
+  [3, "Location detection took too long. Please try again or select the location on the map."],
+]) {
+  test(`secure context shows specific geolocation error ${code} and keeps selected location`, async ({ page }) => {
+    await page.addInitScript((errorCode) => {
+      Object.defineProperty(window, "isSecureContext", { value: true });
+      window.gpsRequests = 0;
+      Object.defineProperty(navigator, "geolocation", { value: { getCurrentPosition: (_success, failure) => {
+        window.gpsRequests += 1;
+        failure({ code: errorCode });
+      } } });
+    }, code);
+    await fillReport(page);
+    await page.getByRole("button", { name: "Use my current location" }).click();
+    await expect(page.getByText(message, { exact: true })).toBeVisible();
+    expect(await page.evaluate(() => window.gpsRequests)).toBe(1);
+    await expect(page.getByRole("button", { name: "Use my current location" })).toBeEnabled();
+    await expect(page.getByLabel("Location Name", { exact: true })).toHaveValue("Nairobi test landmark");
+    const body = await submitAndReadReport(page);
+    expect(body.latitude).toBe(-1.2921);
+    expect(body.longitude).toBe(36.8219);
+  });
+}
+
 test("GPS populates a concise named place and caches repeat lookups", async ({ page }) => {
   await mockGps(page);
   let lookups = 0;
@@ -195,7 +237,7 @@ test("geolocation denied, success, and map fallback", async ({ page }) => {
   });
   await fillReport(page);
   await page.getByRole("button", { name: "Use my current location" }).click();
-  await expect(page.getByText(/Location permission was denied/)).toBeVisible();
+  await expect(page.getByText(/Location access was denied/)).toBeVisible();
   await expect(page.getByLabel("Location Name", { exact: true })).toHaveValue("Nairobi test landmark");
   await page.getByRole("button", { name: "Use my current location" }).click();
   await expect(page.getByText("Location detected: Madaraka Estate, Nairobi", { exact: true })).toBeVisible();
@@ -269,7 +311,7 @@ test("map selection after geolocation failure submits internal coordinates", asy
   await page.goto("/report");
   await page.getByLabel("Location Name", { exact: true }).fill("Kibera market entrance");
   await page.getByRole("button", { name: "Use my current location" }).click();
-  await expect(page.getByText(/Location permission was denied/)).toBeVisible();
+  await expect(page.getByText(/Location access was denied/)).toBeVisible();
   await page.getByRole("button", { name: "Select location on map", exact: true }).click();
   const map = page.locator(".report-location-map");
   await expect(map).toBeVisible();
