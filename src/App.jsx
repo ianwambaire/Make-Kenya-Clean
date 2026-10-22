@@ -34,6 +34,7 @@ import { supabase } from "./lib/supabase";
 import NotificationBell from "./components/NotificationBell";
 import PhotoUploader from "./components/PhotoUploader";
 import NavigationMenu from "./components/NavigationMenu";
+import { reverseGeocode } from "./services/geocoding";
 import CopyTrackingCode from "./components/CopyTrackingCode";
 import RiskGuide from "./components/RiskGuide";
 import { RISK_DESCRIPTIONS, riskTooltip } from "./constants/riskDescriptions";
@@ -632,6 +633,10 @@ function LandingPage({ reports }) {
 function ReportIssue({ addReport }) {
   const successRef = useRef(null);
   const formRef = useRef(null);
+  const locationRequest = useRef(0);
+  const landmarkRevision = useRef(0);
+  const lookupTimer = useRef(null);
+  const [isResolvingName, setIsResolvingName] = useState(false);
   const [showLocationMap, setShowLocationMap] = useState(false);
   const [locationMessage, setLocationMessage] = useState("");
   const [isLocating, setIsLocating] = useState(false);
@@ -661,6 +666,42 @@ function ReportIssue({ addReport }) {
     }
   }, [submittedReport]);
 
+  useEffect(() => () => {
+    locationRequest.current += 1;
+    clearTimeout(lookupTimer.current);
+  }, []);
+
+  function cancelLocationLookup() {
+    clearTimeout(lookupTimer.current);
+    locationRequest.current += 1;
+    setIsResolvingName(false);
+    setIsLocating(false);
+    return locationRequest.current;
+  }
+
+  function resolveLocationName(lat, lng, requestId, revision = landmarkRevision.current) {
+    if (revision !== landmarkRevision.current) {
+      setLocationMessage("Location detected. Your manually entered landmark has been kept.");
+      return;
+    }
+    setIsResolvingName(true);
+    setLocationMessage("Location detected. Finding location name...");
+    lookupTimer.current = setTimeout(async () => {
+      try {
+        const name = await reverseGeocode(lat, lng);
+        if (locationRequest.current !== requestId || landmarkRevision.current !== revision) return;
+        setFormData((current) => ({ ...current, locationName: name }));
+        setFieldErrors((current) => ({ ...current, locationName: "" }));
+        setLocationMessage(`Location detected: ${name}`);
+      } catch {
+        if (locationRequest.current !== requestId || landmarkRevision.current !== revision) return;
+        setLocationMessage("Location detected, but we could not determine the place name. You can enter a landmark manually.");
+      } finally {
+        if (locationRequest.current === requestId && landmarkRevision.current === revision) setIsResolvingName(false);
+      }
+    }, 500);
+  }
+
   const riskScore = calculateRiskScore(
     formData.issueType,
     formData.urgency,
@@ -685,6 +726,19 @@ function ReportIssue({ addReport }) {
       checked,
     } = event.target;
 
+    if (["locationName", "latitude", "longitude"].includes(name)) {
+      if (name === "locationName") {
+        landmarkRevision.current += 1;
+        clearTimeout(lookupTimer.current);
+        setIsResolvingName(false);
+      } else {
+        cancelLocationLookup();
+      }
+      setLocationMessage(name === "locationName"
+        ? (hasValidLocation ? "Landmark updated. Your selected coordinates have been kept." : "Landmark updated. Choose a point on the map or use your current location.")
+        : "Coordinates updated. Check the selected point on the map.");
+    }
+
     setFormData((current) => ({
       ...current,
       [name]:
@@ -702,12 +756,16 @@ function ReportIssue({ addReport }) {
       setLocationMessage("Please select a point within Kenya.");
       return;
     }
+    const requestId = cancelLocationLookup();
+    setIsLocating(false);
     setFormData((current) => ({ ...current, latitude: lat.toFixed(6), longitude: lng.toFixed(6) }));
     setFieldErrors((current) => ({ ...current, location: "" }));
-    setLocationMessage("Location selected. The pin marks your report location; select another point to change it.");
+    resolveLocationName(lat, lng, requestId);
   }
 
   function handleUseCurrentLocation() {
+    const requestId = cancelLocationLookup();
+    const revision = landmarkRevision.current;
     if (!navigator.geolocation) {
       setLocationMessage(
         "Geolocation is not supported by this browser. Select your location on the map instead."
@@ -717,10 +775,11 @@ function ReportIssue({ addReport }) {
     }
 
     setIsLocating(true);
-    setLocationMessage("Requesting your device location...");
+    setLocationMessage("Detecting your location…");
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        if (locationRequest.current !== requestId) return;
         setFormData((current) => ({
           ...current,
           latitude:
@@ -730,9 +789,10 @@ function ReportIssue({ addReport }) {
         }));
         setIsLocating(false);
         setFieldErrors((current) => ({ ...current, location: "" }));
-        setLocationMessage("Location detected successfully. Add a location name or nearby landmark.");
+        resolveLocationName(position.coords.latitude, position.coords.longitude, requestId, revision);
       },
       (error) => {
+        if (locationRequest.current !== requestId) return;
         setIsLocating(false);
         setLocationMessage(
           error.code === 1
@@ -821,6 +881,7 @@ function ReportIssue({ addReport }) {
     }
 
     setIsSubmitting(true);
+    cancelLocationLookup();
     setFormMessage("");
     setSubmissionStep("Preparing report...");
 
@@ -1013,8 +1074,9 @@ function ReportIssue({ addReport }) {
             </div>
 
             <p>
-              <span role="status">{locationMessage || "Choose your current location or select a point on the map. Add a nearby landmark above."}</span>
+              <span role="status" aria-busy={isResolvingName}>{locationMessage.startsWith("Location detected:") && <CheckCircle2 size={16} aria-hidden="true" />} {locationMessage || "Choose your current location or select a point on the map. We will try to find its place name for you."}</span>
             </p>
+            <small className="form-hint">Place names by <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>. Selected coordinates are sent to its lookup service. Names may refer to a nearby mapped place; please check and edit if needed.</small>
             <small id="location-selection-error" className="field-error">{fieldErrors.location}</small>
           </div>
 
@@ -1269,7 +1331,7 @@ function ReportIssue({ addReport }) {
           <button
             type="submit"
             className="submit-btn"
-            disabled={isSubmitting}
+            disabled={isSubmitting || isLocating || isResolvingName}
           >
             {isSubmitting
               ? "Submitting Report..."

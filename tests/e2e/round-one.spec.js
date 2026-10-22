@@ -4,6 +4,7 @@ const codePattern = /^MKC-\d{4}-[A-Z0-9]+$/;
 const pixel = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=", "base64");
 
 test.beforeEach(async ({ page }) => {
+  await page.route("https://nominatim.openstreetmap.org/reverse?**", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ address: { suburb: "Madaraka Estate", city: "Nairobi", county: "Nairobi County", postcode: "00100", country: "Kenya" } }) }));
   await page.route("**/rest/v1/**", async (route) => {
     const post = route.request().method() === "POST";
     const reports = new URL(route.request().url()).pathname.endsWith("/public_reports");
@@ -21,6 +22,103 @@ async function fillReport(page) {
   await page.getByLabel("Description", { exact: true }).fill("There is a burst pipe outside the market entrance, spilling water across the road.");
   await page.getByRole("checkbox", { name: /I understand/ }).check();
 }
+
+async function mockGps(page) {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "geolocation", { value: { getCurrentPosition: (success) => success({ coords: { latitude: -1.309, longitude: 36.812 } }) } });
+  });
+}
+
+test("GPS populates a concise named place and caches repeat lookups", async ({ page }) => {
+  await mockGps(page);
+  let lookups = 0;
+  await page.route("https://nominatim.openstreetmap.org/reverse?**", (route) => {
+    lookups += 1;
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ category: "amenity", name: "Strathmore University", address: { amenity: "Strathmore University", suburb: "Madaraka Estate", city: "Nairobi", country: "Kenya", postcode: "00100" } }) });
+  });
+  await page.goto("/report");
+  await page.getByRole("button", { name: "Use my current location" }).click();
+  await expect(page.getByText("Location detected. Finding location name...", { exact: true })).toBeVisible();
+  const name = page.getByLabel("Location Name", { exact: true });
+  await expect(name).toHaveValue("Strathmore University, Nairobi");
+  await expect(page.getByText("Location detected: Strathmore University, Nairobi", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Use my current location" }).click();
+  await expect(page.getByText("Location detected: Strathmore University, Nairobi", { exact: true })).toBeVisible();
+  expect(lookups).toBe(1);
+  await name.fill("University main gate");
+  await page.getByLabel("Description", { exact: true }).fill("Water is flowing across the entrance.");
+  await expect(name).toHaveValue("University main gate");
+  expect(lookups).toBe(1);
+});
+
+test("GPS survives a reverse-geocoding failure and manual landmark can be submitted", async ({ page }) => {
+  await mockGps(page);
+  await page.route("https://nominatim.openstreetmap.org/reverse?**", (route) => route.fulfill({ status: 503, body: "unavailable" }));
+  await page.goto("/report");
+  await page.getByRole("button", { name: "Use my current location" }).click();
+  await expect(page.getByText("Location detected, but we could not determine the place name. You can enter a landmark manually.", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Latitude", { exact: true })).toHaveValue("-1.309000");
+  await expect(page.getByLabel("Longitude", { exact: true })).toHaveValue("36.812000");
+  await page.getByLabel("Location Name", { exact: true }).fill("University main gate");
+  await page.getByLabel("Description", { exact: true }).fill("Water is flowing across the entrance.");
+  await page.getByRole("checkbox", { name: /I understand/ }).check();
+  await page.getByRole("button", { name: "Submit Report", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Report Submitted" })).toBeVisible();
+});
+
+test("a delayed place lookup cannot overwrite a manually edited landmark", async ({ page }) => {
+  await mockGps(page);
+  let releaseResponse;
+  const responseGate = new Promise((resolve) => { releaseResponse = resolve; });
+  await page.route("https://nominatim.openstreetmap.org/reverse?**", async (route) => {
+    await responseGate;
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ address: { amenity: "Strathmore University", city: "Nairobi" } }) });
+  });
+  await page.goto("/report");
+  const requestStarted = page.waitForRequest("https://nominatim.openstreetmap.org/reverse?**");
+  await page.getByRole("button", { name: "Use my current location" }).click();
+  await requestStarted;
+  await page.getByLabel("Location Name", { exact: true }).fill("My chosen landmark");
+  const responseFinished = page.waitForResponse("https://nominatim.openstreetmap.org/reverse?**");
+  releaseResponse();
+  await (await responseFinished).finished();
+  await expect(page.getByLabel("Location Name", { exact: true })).toHaveValue("My chosen landmark");
+  await expect(page.getByText("Landmark updated. Your selected coordinates have been kept.", { exact: true })).toBeVisible();
+});
+
+test("typing a landmark while GPS is pending preserves the name and still accepts coordinates", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "geolocation", { value: { getCurrentPosition: (success) => { window.finishLocation = () => success({ coords: { latitude: -1.309, longitude: 36.812 } }); } } });
+  });
+  await page.goto("/report");
+  await page.getByRole("button", { name: "Use my current location" }).click();
+  await page.getByLabel("Location Name", { exact: true }).fill("University main gate");
+  await page.evaluate(() => window.finishLocation());
+  await expect(page.getByLabel("Latitude", { exact: true })).toHaveValue("-1.309000");
+  await expect(page.getByLabel("Location Name", { exact: true })).toHaveValue("University main gate");
+  await expect(page.getByText("Location detected. Your manually entered landmark has been kept.", { exact: true })).toBeVisible();
+});
+
+test("changing map points updates the place name", async ({ page }) => {
+  let lookups = 0;
+  await page.route("https://nominatim.openstreetmap.org/reverse?**", (route) => {
+    const address = ++lookups === 1
+      ? { building: "Community Hall", city: "Nairobi" }
+      : { road: "Mbagathi Way", city: "Nairobi" };
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ address }) });
+  });
+  await page.goto("/report");
+  await page.getByRole("button", { name: "Select location on map", exact: true }).click();
+  const map = page.locator(".report-location-map");
+  await expect(map).toBeVisible();
+  const bounds = await map.boundingBox();
+  await map.click({ position: { x: bounds.width * 0.5, y: bounds.height * 0.5 } });
+  await expect(page.getByLabel("Location Name", { exact: true })).toHaveValue("Community Hall, Nairobi");
+  await map.click({ position: { x: bounds.width * 0.7, y: bounds.height * 0.6 } });
+  await expect(page.getByLabel("Location Name", { exact: true })).toHaveValue("Mbagathi Way, Nairobi");
+  expect(lookups).toBe(2);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
 
 test("report without photo saves only tracking code and recovers it after reload", async ({ page, context }) => {
   await fillReport(page);
@@ -82,7 +180,8 @@ test("geolocation denied, success, and manual fallback", async ({ page }) => {
   await expect(page.getByText(/Location permission was denied/)).toBeVisible();
   await expect(page.getByLabel("Latitude", { exact: true })).toHaveValue("-1.29");
   await page.getByRole("button", { name: "Use my current location" }).click();
-  await expect(page.getByText(/Location detected successfully/)).toBeVisible();
+  await expect(page.getByText("Location detected: Madaraka Estate, Nairobi", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Location Name", { exact: true })).toHaveValue("Madaraka Estate, Nairobi");
   await expect(page.getByLabel("Latitude", { exact: true })).toHaveValue("-1.313300");
 });
 
@@ -135,7 +234,7 @@ test("validation focuses each missing field in order and retains input", async (
   await description.fill("Water is flooding the entrance to the market.");
   await submit.click();
   await expect(page.getByRole("checkbox", { name: /I understand/ })).toBeFocused();
-  await expect(locationName).toHaveValue("Kibera market entrance");
+  await expect(locationName).toHaveValue("Madaraka Estate, Nairobi");
 });
 
 test("map selection after geolocation failure submits internal coordinates", async ({ page }) => {
@@ -154,7 +253,7 @@ test("map selection after geolocation failure submits internal coordinates", asy
   await expect(map.locator(".leaflet-marker-icon")).toHaveCount(1);
   await expect(map.locator(".leaflet-marker-icon")).toBeVisible();
   await expect.poll(() => map.locator(".leaflet-marker-icon").evaluate((image) => image.complete && image.naturalWidth > 0)).toBe(true);
-  await expect(page.getByText(/Location selected. The pin/)).toBeVisible();
+  await expect(page.getByText("Location detected: Madaraka Estate, Nairobi", { exact: true })).toBeVisible();
   const latitude = page.getByLabel("Latitude", { exact: true });
   const before = await latitude.inputValue();
   await map.click({ position: { x: bounds.width * 0.7, y: bounds.height * 0.6 } });
